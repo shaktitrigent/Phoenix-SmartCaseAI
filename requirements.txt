@@ -1,0 +1,10 @@
+# Core dependencies for Phoenix-SmartCaseAI
+pydantic>=2.11.0
+langchain-core>=0.3.70
+langchain-openai>=0.3.30
+
+# Optional dependencies for future integrations
+# langchain-google-genai>=2.0.0  # For Google Gemini support
+# langchain-anthropic>=0.3.0     # For Anthropic Claude support
+# jira>=3.0.0                    # For Jira integration
+# testrail-api>=1.0.0            # For TestRail integration
