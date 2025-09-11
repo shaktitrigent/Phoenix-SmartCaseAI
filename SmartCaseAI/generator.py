@@ -86,16 +86,16 @@ class StoryBDDGenerator:
             if not key:
                 raise ValueError("OpenAI API key required.")
             self.llm = ChatOpenAI(model="gpt-4o-mini", api_key=key)
-        # elif llm_provider == "gemini":
-        #     key = api_key or os.getenv("GOOGLE_API_KEY")
-        #     if not key:
-        #         raise ValueError("Google API key required.")
-        #     self.llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", api_key=key)
-        # elif llm_provider == "claude":
-        #     key = api_key or os.getenv("ANTHROPIC_API_KEY")
-        #     if not key:
-        #         raise ValueError("Anthropic API key required.")
-        #     self.llm = ChatAnthropic(model="claude-3-5-sonnet-20240620", api_key=key)
+        elif llm_provider == "gemini":
+            key = api_key or os.getenv("GOOGLE_API_KEY")
+            if not key:
+                raise ValueError("Google API key required.")
+            self.llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", api_key=key)
+        elif llm_provider == "claude":
+            key = api_key or os.getenv("ANTHROPIC_API_KEY")
+            if not key:
+                raise ValueError("Anthropic API key required.")
+            self.llm = ChatAnthropic(model="claude-3-5-sonnet-20240620", api_key=key)
         else:
             raise ValueError("Unsupported LLM provider.")
 
