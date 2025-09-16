@@ -16,24 +16,20 @@ parts/
 sdist/
 var/
 wheels/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 # Virtual environments
 venv/
 env/
 ENV/
-test_venv/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
 # OS
 .DS_Store
@@ -43,18 +39,14 @@ Thumbs.db
 .env
 .env.local
 
-# Generated test files (demo outputs)
-demo_output/
-test_output/
+# Generated test files
+test_cases/
 generated_tests/
+*_tests/
 
-# API keys (just in case)
+# API keys
 *.key
 secrets.txt
 
 # Logs
 *.log
-
-# Temporary files
-*.tmp
-*.temp

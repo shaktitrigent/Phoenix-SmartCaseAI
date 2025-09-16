@@ -1,16 +1,12 @@
 import os
 from datetime import datetime
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional
 
-from pydantic import BaseModel, Field, field_validator, RootModel
+from pydantic import BaseModel, Field, RootModel
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_openai import ChatOpenAI
-# from langchain_anthropic import ChatAnthropic
-# from langchain_google_genai import ChatGoogleGenerativeAI
 
-# from jira import JIRA
-# from testrail_api import TestRailAPI  # Note: 'testrail-api' package uses this class
 
 class TestCase(BaseModel):
     """Structured test case model."""
@@ -36,6 +32,7 @@ class TestCase(BaseModel):
             }
         return schema
 
+
 class BDDScenario(BaseModel):
     """BDD/Gherkin-style scenario model."""
     feature: str = Field(description="Feature name")
@@ -43,6 +40,7 @@ class BDDScenario(BaseModel):
     given: List[str] = Field(description="Given steps (preconditions)")
     when: List[str] = Field(description="When steps (actions)")
     then: List[str] = Field(description="Then steps (expectations)")
+
 
 class TestCaseList(RootModel[List[TestCase]]):
     """Root model for List[TestCase] to work with PydanticOutputParser."""
@@ -58,6 +56,7 @@ class TestCaseList(RootModel[List[TestCase]]):
             "items": testcase_schema
         }
 
+
 class BDDScenarioList(RootModel[List[BDDScenario]]):
     """Root model for List[BDDScenario] to work with PydanticOutputParser."""
     
@@ -72,32 +71,27 @@ class BDDScenarioList(RootModel[List[BDDScenario]]):
             "items": bdd_schema
         }
 
+
 class StoryBDDGenerator:
     def __init__(
         self,
-        llm_provider: str = "openai",  # Options: "openai", "gemini", "claude"
-        api_key: Optional[str] = None,  # Override env var if needed
+        llm_provider: str = "openai",
+        api_key: Optional[str] = None,
     ):
         """
         Initialize the generator with chosen LLM.
+        
+        Args:
+            llm_provider: LLM provider to use (currently only "openai" supported)
+            api_key: API key for the LLM provider (optional, uses env var if not provided)
         """
         if llm_provider == "openai":
             key = api_key or os.getenv("OPENAI_API_KEY")
             if not key:
-                raise ValueError("OpenAI API key required.")
+                raise ValueError("OpenAI API key required. Set OPENAI_API_KEY environment variable or pass api_key parameter.")
             self.llm = ChatOpenAI(model="gpt-4o-mini", api_key=key)
-        elif llm_provider == "gemini":
-            key = api_key or os.getenv("GOOGLE_API_KEY")
-            if not key:
-                raise ValueError("Google API key required.")
-            self.llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", api_key=key)
-        elif llm_provider == "claude":
-            key = api_key or os.getenv("ANTHROPIC_API_KEY")
-            if not key:
-                raise ValueError("Anthropic API key required.")
-            self.llm = ChatAnthropic(model="claude-3-5-sonnet-20240620", api_key=key)
         else:
-            raise ValueError("Unsupported LLM provider.")
+            raise ValueError("Currently only 'openai' provider is supported.")
 
     def _generate(self, user_story: str, output_format: str) -> Dict:
         """
@@ -111,6 +105,8 @@ class StoryBDDGenerator:
             Generate 5-10 comprehensive test cases in plain English, covering positive, negative, edge, and boundary scenarios.
             Include prerequisites, instructions, and expected criteria if relevant.
             
+            IMPORTANT: Return ONLY a JSON array of test cases, not an object with an "items" key.
+            
             {format_instructions}
             """
         elif output_format == "bdd":
@@ -121,31 +117,71 @@ class StoryBDDGenerator:
             Generate 5-10 BDD scenarios in Gherkin format, covering positive, negative, edge, and boundary cases.
             Include prerequisites in 'Given', actions in 'When', expectations in 'Then'.
             
+            IMPORTANT: Return ONLY a JSON array of scenarios, not an object with an "items" key.
+            
             {format_instructions}
             """
         else:
             raise ValueError("Output format must be 'plain' or 'bdd'.")
 
         prompt = ChatPromptTemplate.from_template(prompt_template)
-        chain = prompt | self.llm | parser
+        chain = prompt | self.llm
 
-        return chain.invoke({
-            "story": user_story,
-            "format_instructions": parser.get_format_instructions(),
-        })
+        try:
+            # Get raw response from LLM
+            raw_response = chain.invoke({
+                "story": user_story,
+                "format_instructions": parser.get_format_instructions(),
+            })
+            
+            # Parse the response
+            response_content = raw_response.content if hasattr(raw_response, 'content') else str(raw_response)
+            
+            # Try to parse with the parser
+            try:
+                return parser.parse(response_content)
+            except Exception as parse_error:
+                # Fallback: Try to handle the case where LLM returns {"items": [...]}
+                import json
+                try:
+                    parsed_json = json.loads(response_content)
+                    if isinstance(parsed_json, dict) and "items" in parsed_json:
+                        # Extract the items array and re-parse
+                        items_json = json.dumps(parsed_json["items"])
+                        return parser.parse(items_json)
+                    else:
+                        # Re-raise the original parsing error
+                        raise parse_error
+                except json.JSONDecodeError:
+                    # Re-raise the original parsing error
+                    raise parse_error
+                    
+        except Exception as e:
+            raise Exception(f"Failed to generate {output_format} test cases: {str(e)}")
 
     def generate_test_cases(
         self,
         user_story: str,
-        output_format: str = "bdd",  # "plain" or "bdd"
-        num_cases: Optional[int] = None,  # Optional override for count
+        output_format: str = "bdd",
+        num_cases: Optional[int] = None,
     ) -> List[Dict]:
         """
         Generate test cases from a raw user story string.
         
+        Args:
+            user_story: The user story to generate tests for
+            output_format: "plain" or "bdd"
+            num_cases: Optional limit on number of test cases
+            
+        Returns:
+            List of dictionaries containing test case data
+            
         Example:
-        generator = StoryBDDGenerator(llm_provider="openai")
-        cases = generator.generate_test_cases("As a user, I want to log in so I can access my account.", output_format="bdd")
+            generator = StoryBDDGenerator(llm_provider="openai")
+            cases = generator.generate_test_cases(
+                "As a user, I want to log in so I can access my account.", 
+                output_format="bdd"
+            )
         """
         root_result = self._generate(user_story, output_format)
         
@@ -286,56 +322,12 @@ Scenario: {scenario.get('scenario', 'Untitled Scenario')}
             "bdd": bdd_filepath
         }
 
-    # def fetch_from_jira(
-    #     self,
-    #     jira_url: str,
-    #     username: str,
-    #     api_token: str,
-    #     issue_key: str,
-    # ) -> str:
-    #     """
-    #     Fetch user story and related details from Jira.
-    #     Returns combined string with story, prerequisites, acceptance criteria, etc.
-    #     """
-    #     jira = JIRA(server=jira_url, basic_auth=(username, api_token))
-    #     issue = jira.get_issue(issue_key)
-    #     details = f"User Story: {issue.fields.summary}\nDescription: {issue.fields.description}\n"
-    #     if issue.fields.acceptancecriteria:  # Custom field; adjust if named differently
-    #         details += f"Acceptance Criteria: {issue.fields.acceptancecriteria}\n"
-    #     # Add more fields as needed (e.g., prerequisites via custom fields)
-    #     return details
 
-    # def add_to_testrail(
-    #     self,
-    #     testrail_url: str,
-    #     username: str,
-    #     api_key: str,
-    #     project_id: int,
-    #     section_id: int,
-    #     test_cases: List[Dict],
-    # ):
-    #     """
-    #     Add generated test cases to TestRail.
-    #     Assumes 'plain' format; adapt for BDD if needed.
-    #     """
-    #     client = TestRailAPI(testrail_url, username, api_key)
-    #     for case in test_cases:
-    #         client.add_case(
-    #             section_id=section_id,
-    #             title=case["title"],
-    #             type_id=1,  # Functional; adjust as needed
-    #             priority_id=2,  # Medium; adjust
-    #             refs=case.get("description", ""),
-    #             steps="\n".join(case["steps"]),
-    #             expected=case["expected"],
-    #         )
-    #     return f"Added {len(test_cases)} cases to TestRail project {project_id}."
-
-# Example usage (in a script or Jupyter):
+# Example usage
 if __name__ == "__main__":
     gen = StoryBDDGenerator(llm_provider="openai")
     
-    # Direct generation
+    # Example user story
     story = "As a user, I want to reset my password so I can regain access if forgotten."
     
     # Generate and export to separate markdown files
@@ -349,26 +341,3 @@ if __name__ == "__main__":
     
     print(f"✅ Plain English tests saved to: {file_paths['plain_english']}")
     print(f"✅ BDD tests saved to: {file_paths['bdd']}")
-    
-    # You can also generate individual formats
-    # cases = gen.generate_test_cases(story, output_format="bdd")
-    # print(cases)
-    
-    # With Jira fetch
-    # jira_story = gen.fetch_from_jira(
-    #     jira_url="https://yourcompany.atlassian.net",
-    #     username="your@email.com",
-    #     api_token="your_jira_token",
-    #     issue_key="PROJ-123"
-    # )
-    # file_paths = gen.export_to_markdown(jira_story)
-    
-    # Add to TestRail
-    # gen.add_to_testrail(
-    #     testrail_url="https://yourcompany.testrail.io",
-    #     username="your@email.com",
-    #     api_key="your_testrail_key",
-    #     project_id=1,
-    #     section_id=10,
-    #     test_cases=cases
-    # )
