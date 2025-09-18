@@ -37,39 +37,89 @@ def main():
     
     # Example user stories for different domains
     user_stories = {
-        "e-commerce": """
-        As an online customer, I want to add items to my shopping cart
-        so that I can purchase multiple products in a single transaction.
-        
-        Acceptance Criteria:
-        - Users can add products by clicking "Add to Cart" button
-        - Cart icon shows the number of items
-        - Users can view cart contents before checkout
-        - Cart persists across browser sessions for logged-in users
-        """,
-        
-        "banking": """
-        As a bank customer, I want to transfer money between my accounts
-        so that I can manage my finances efficiently.
-        
-        Acceptance Criteria:
-        - Users can select source and destination accounts
-        - Transfer amount must not exceed available balance
-        - Users receive confirmation before executing transfer
-        - Transaction history is updated immediately
-        - Users receive email notification of successful transfer
-        """,
-        
-        "healthcare": """
-        As a patient, I want to book appointments online
-        so that I can schedule my visits conveniently.
-        
-        Acceptance Criteria:
-        - Patients can view available time slots
-        - System prevents double-booking
-        - Patients receive appointment confirmation
-        - Patients can reschedule or cancel appointments
-        - Doctor's schedule is updated in real-time
+
+        "Allow volunteers to update their hours in the portal" :
+
+
+        """ Description
+
+We are enhancing the Volunteer Portal so that, when the Allow Volunteer Hour Edits configuration is enabled, volunteers can correct their sign-out time if it was logged by the system via auto sign-out.
+
+Currently, auto sign-outs may record inflated hours if a volunteer forgets to sign out. This leads to inaccurate reporting and requires staff intervention. By allowing volunteers to edit just their sign-out time (not the sign-in time or other details) on auto sign-out entries, we empower them to quickly correct mistakes, reduce coordinator workload, and improve accuracy while maintaining auditability and control.
+
+Acceptance Criteria
+Eligibility Rules:
+
+Edit option is only available if:
+
+The district/building has Allow Volunteer Hour Edits enabled.
+
+The hours entry was created via auto sign-out.
+
+The hours entry was previously updated by them and they need to make a change. (this is updating self entered hours for the hours they edited)
+
+UI – Volunteer Portal:
+
+On the volunteer’s My Hours History screen, under Details for a specific day, End Date/Time should be editable if the eligibility rules are met.  
+
+Only the sign-out time can be changed.
+
+image-20250910-170829.png
+ 
+
+Validation:
+
+New sign-out time must be after the sign-in time.
+
+New sign-out time must be the same date.
+
+The Sign Out Event Method changes  from Auto to Proxy
+
+Once the update it done, Raptor Web should reflect the new time in Sign In/Out history and use the method Proxy
+
+Security:
+
+Volunteers cannot edit entries that were signed out via VisitorSafe.
+
+
+Description
+
+We are enhancing the Volunteer Portal so that, when the Allow Volunteer Hour Edits configuration is enabled, volunteers can correct their sign-out time if it was logged by the system via auto sign-out.
+
+Currently, auto sign-outs may record inflated hours if a volunteer forgets to sign out. This leads to inaccurate reporting and requires staff intervention. By allowing volunteers to edit just their sign-out time (not the sign-in time or other details) on auto sign-out entries, we empower them to quickly correct mistakes, reduce coordinator workload, and improve accuracy while maintaining auditability and control.
+
+Acceptance Criteria
+Eligibility Rules:
+
+Edit option is only available if:
+
+The district/building has Allow Volunteer Hour Edits enabled.
+
+The hours entry was created via auto sign-out.
+
+The hours entry was previously updated by them and they need to make a change. (this is updating self entered hours for the hours they edited)
+
+UI – Volunteer Portal:
+
+On the volunteer’s My Hours History screen, under Details for a specific day, End Date/Time should be editable if the eligibility rules are met.  
+
+Only the sign-out time can be changed.
+
+
+
+Validation:
+
+New sign-out time must be after the sign-in time.
+
+New sign-out time must be the same date.
+
+The Sign Out Event Method changes  from Auto to Proxy
+
+Once the update it done, Raptor Web should reflect the new time in Sign In/Out history and use the method Proxy
+
+Security:
+
+Volunteers cannot edit entries that were signed out via VisitorSafe.
         """
     }
     

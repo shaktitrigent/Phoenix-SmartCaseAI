@@ -89,7 +89,7 @@ class StoryBDDGenerator:
             key = api_key or os.getenv("OPENAI_API_KEY")
             if not key:
                 raise ValueError("OpenAI API key required. Set OPENAI_API_KEY environment variable or pass api_key parameter.")
-            self.llm = ChatOpenAI(model="gpt-4o-mini", api_key=key)
+            self.llm = ChatOpenAI(model="gpt-5-nano", api_key=key)
         else:
             raise ValueError("Currently only 'openai' provider is supported.")
 
@@ -97,7 +97,7 @@ class StoryBDDGenerator:
         """
         Internal method to generate test cases using LLM.
         """
-        if output_format == "plain":
+        if output_format.lower() == "plain":
             parser = PydanticOutputParser(pydantic_object=TestCaseList)
             prompt_template = """
             You are an expert QA engineer. From the user story: "{story}"
@@ -109,7 +109,7 @@ class StoryBDDGenerator:
             
             {format_instructions}
             """
-        elif output_format == "bdd":
+        elif output_format.lower() == "bdd":
             parser = PydanticOutputParser(pydantic_object=BDDScenarioList)
             prompt_template = """
             You are an expert QA engineer skilled in BDD. From the user story: "{story}"
