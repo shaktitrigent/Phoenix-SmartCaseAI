@@ -11,6 +11,9 @@ Phoenix-SmartCaseAI is an intelligent test case generator that leverages Large L
 - 📊 **JSON Schema Validation**: Strict schema compliance for consistent output
 - 📁 **Markdown Export**: Generate separate `.md` files for different test formats
 - ⚙️ **Pydantic Models**: Type-safe data structures with automatic validation
+- 📎 **File Analysis**: Analyze additional files (PDFs, images, documents, spreadsheets) for enhanced context
+- 🔍 **OCR & Vision**: Extract text from images and analyze UI mockups/wireframes
+- 🎥 **Multi-format Support**: Handle text, PDF, Word, Excel, CSV, JSON, XML, images, and videos
 - 🔗 **Extensible**: Ready for Jira and TestRail integration (coming soon)
 
 ## 🛠️ Installation
@@ -48,7 +51,7 @@ Phoenix-SmartCaseAI is an intelligent test case generator that leverages Large L
 ### Basic Usage
 
 ```python
-from SmartCaseAI.generator import StoryBDDGenerator
+from SmartCaseAI import StoryBDDGenerator
 
 # Initialize the generator
 gen = StoryBDDGenerator(llm_provider="openai")
@@ -68,6 +71,46 @@ file_paths = gen.export_to_markdown(
 
 print(f"Plain English tests: {file_paths['plain_english']}")
 print(f"BDD tests: {file_paths['bdd']}")
+```
+
+### Enhanced Usage with File Analysis
+
+```python
+from SmartCaseAI import StoryBDDGenerator
+
+# Initialize the generator
+gen = StoryBDDGenerator(llm_provider="openai")
+
+# User story
+user_story = """
+As a user, I want to be able to log into the system using my email and password
+so that I can access my personal dashboard and manage my account.
+"""
+
+# Additional files for context (requirements, UI mockups, API specs, etc.)
+additional_files = [
+    "requirements.pdf",
+    "ui_mockup.png", 
+    "api_spec.json",
+    "test_data.csv"
+]
+
+# Generate test cases with file analysis
+test_cases = gen.generate_test_cases(
+    user_story=user_story,
+    output_format="bdd",
+    num_cases=5,
+    additional_files=additional_files
+)
+
+# Or export directly to markdown with file analysis
+file_paths = gen.export_to_markdown(
+    user_story=user_story,
+    output_dir="test_cases",
+    filename_prefix="login_tests",
+    num_cases=5,
+    additional_files=additional_files
+)
 ```
 
 ### Generate Individual Formats
@@ -184,17 +227,18 @@ Initialize the generator with your preferred LLM provider.
 - `llm_provider` (str): "openai", "gemini", or "claude"
 - `api_key` (str, optional): Override environment variable
 
-#### `generate_test_cases(user_story, output_format="bdd", num_cases=None)`
-Generate test cases from a user story.
+#### `generate_test_cases(user_story, output_format="bdd", num_cases=None, additional_files=None)`
+Generate test cases from a user story with optional file analysis.
 
 **Parameters:**
 - `user_story` (str): The user story to generate tests for
 - `output_format` (str): "plain" or "bdd"
 - `num_cases` (int, optional): Limit number of generated test cases
+- `additional_files` (list, optional): List of file paths to analyze for additional context
 
 **Returns:** List of dictionaries containing test case data
 
-#### `export_to_markdown(user_story, output_dir=".", filename_prefix="test_cases", num_cases=None)`
+#### `export_to_markdown(user_story, output_dir=".", filename_prefix="test_cases", num_cases=None, additional_files=None)`
 Generate test cases and export to markdown files.
 
 **Parameters:**
@@ -202,15 +246,92 @@ Generate test cases and export to markdown files.
 - `output_dir` (str): Directory to save markdown files
 - `filename_prefix` (str): Prefix for generated filenames
 - `num_cases` (int, optional): Limit number of test cases
+- `additional_files` (list, optional): List of file paths to analyze for additional context
 
 **Returns:** Dictionary with file paths: `{"plain_english": "path", "bdd": "path"}`
 
-## 🧪 Testing
+### FileAnalyzer
 
-Run the example usage script:
+#### `analyze_file(file_path)`
+Analyze a single file and extract relevant information.
+
+**Parameters:**
+- `file_path` (str/Path): Path to the file to analyze
+
+**Returns:** FileAnalysisResult object with extracted content and metadata
+
+#### `analyze_multiple_files(file_paths)`
+Analyze multiple files and return results.
+
+**Parameters:**
+- `file_paths` (list): List of file paths to analyze
+
+**Returns:** List of FileAnalysisResult objects
+
+#### Supported File Types:
+- **Text**: `.txt`, `.md`, `.markdown`
+- **Documents**: `.pdf`, `.docx`, `.doc`
+- **Spreadsheets**: `.xlsx`, `.xls`, `.csv`
+- **Data**: `.json`, `.xml`
+- **Images**: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.tiff`
+- **Videos**: `.mp4`, `.avi`, `.mov`, `.wmv`
+
+## 🖥️ Command Line Interface
+
+Phoenix-SmartCaseAI includes a powerful CLI for easy integration into your workflow:
+
+### Basic CLI Usage
 
 ```bash
+# Generate test cases from a user story
+phoenix-smartcase --story "As a user, I want to login..." --output-dir ./tests
+
+# Generate with additional files for context
+phoenix-smartcase --story "As a user, I want to login..." \
+                  --files requirements.pdf ui_mockup.png api_spec.json
+
+# Use a directory of files
+phoenix-smartcase --story "As a user, I want to login..." \
+                  --file-dir ./project_docs
+
+# Interactive mode with files
+phoenix-smartcase --interactive --files wireframe.png user_manual.pdf
+
+# Generate only BDD format with files
+phoenix-smartcase --story "As a user, I want to login..." \
+                  --format bdd --files test_data.csv
+
+# Custom output directory and prefix
+phoenix-smartcase --story "As a user, I want to login..." \
+                  --output-dir ./my_tests \
+                  --prefix login_feature \
+                  --files requirements.pdf
+```
+
+### CLI Options
+
+- `--story`, `-s`: User story text directly as argument
+- `--story-file`, `-f`: Path to file containing user story
+- `--interactive`, `-i`: Interactive mode - enter story via prompt
+- `--format`: Output format ("plain", "bdd", or "both")
+- `--num-cases`, `-n`: Number of test cases to generate
+- `--output-dir`, `-o`: Directory to save generated files
+- `--prefix`, `-p`: Filename prefix for generated files
+- `--files`, `-F`: Additional files to analyze for context
+- `--file-dir`: Directory containing files to analyze
+- `--api-key`: OpenAI API key (or set OPENAI_API_KEY env var)
+- `--quiet`, `-q`: Suppress output except errors
+
+## 🧪 Testing
+
+Run the example usage scripts:
+
+```bash
+# Basic example
 python example_usage.py
+
+# File analysis demonstration
+python example_file_analysis.py
 ```
 
 ## 🛣️ Roadmap
