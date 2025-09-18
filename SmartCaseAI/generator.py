@@ -1,11 +1,14 @@
 import os
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
+from pathlib import Path
 
 from pydantic import BaseModel, Field, RootModel
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_openai import ChatOpenAI
+
+from .file_analyzer import FileAnalyzer, FileAnalysisResult
 
 
 class TestCase(BaseModel):
@@ -90,20 +93,33 @@ class StoryBDDGenerator:
             if not key:
                 raise ValueError("OpenAI API key required. Set OPENAI_API_KEY environment variable or pass api_key parameter.")
             self.llm = ChatOpenAI(model="gpt-5-nano", api_key=key)
+            self.file_analyzer = FileAnalyzer(openai_api_key=key)
         else:
             raise ValueError("Currently only 'openai' provider is supported.")
 
-    def _generate(self, user_story: str, output_format: str) -> Dict:
+    def _generate(self, user_story: str, output_format: str, additional_context: str = "") -> Dict:
         """
         Internal method to generate test cases using LLM.
+        
+        Args:
+            user_story: The user story to generate tests for
+            output_format: Output format ("plain" or "bdd")
+            additional_context: Additional context from file analysis
         """
+        # Combine user story with additional context
+        full_context = user_story
+        if additional_context:
+            full_context += f"\n\nAdditional Context from Files:\n{additional_context}"
+        
         if output_format.lower() == "plain":
             parser = PydanticOutputParser(pydantic_object=TestCaseList)
             prompt_template = """
-            You are an expert QA engineer. From the user story: "{story}"
+            You are an expert QA engineer. From the user story and additional context: "{story}"
             
             Generate 5-10 comprehensive test cases in plain English, covering positive, negative, edge, and boundary scenarios.
             Include prerequisites, instructions, and expected criteria if relevant.
+            
+            Use the additional context from files (if provided) to understand requirements better and create more accurate test cases.
             
             IMPORTANT: Return ONLY a JSON array of test cases, not an object with an "items" key.
             
@@ -112,10 +128,12 @@ class StoryBDDGenerator:
         elif output_format.lower() == "bdd":
             parser = PydanticOutputParser(pydantic_object=BDDScenarioList)
             prompt_template = """
-            You are an expert QA engineer skilled in BDD. From the user story: "{story}"
+            You are an expert QA engineer skilled in BDD. From the user story and additional context: "{story}"
             
             Generate 5-10 BDD scenarios in Gherkin format, covering positive, negative, edge, and boundary cases.
             Include prerequisites in 'Given', actions in 'When', expectations in 'Then'.
+            
+            Use the additional context from files (if provided) to understand requirements better and create more accurate scenarios.
             
             IMPORTANT: Return ONLY a JSON array of scenarios, not an object with an "items" key.
             
@@ -130,7 +148,7 @@ class StoryBDDGenerator:
         try:
             # Get raw response from LLM
             raw_response = chain.invoke({
-                "story": user_story,
+                "story": full_context,
                 "format_instructions": parser.get_format_instructions(),
             })
             
@@ -164,14 +182,16 @@ class StoryBDDGenerator:
         user_story: str,
         output_format: str = "bdd",
         num_cases: Optional[int] = None,
+        additional_files: Optional[List[Union[str, Path]]] = None,
     ) -> List[Dict]:
         """
-        Generate test cases from a raw user story string.
+        Generate test cases from a raw user story string with optional file analysis.
         
         Args:
             user_story: The user story to generate tests for
             output_format: "plain" or "bdd"
             num_cases: Optional limit on number of test cases
+            additional_files: Optional list of file paths to analyze for additional context
             
         Returns:
             List of dictionaries containing test case data
@@ -180,10 +200,22 @@ class StoryBDDGenerator:
             generator = StoryBDDGenerator(llm_provider="openai")
             cases = generator.generate_test_cases(
                 "As a user, I want to log in so I can access my account.", 
-                output_format="bdd"
+                output_format="bdd",
+                additional_files=["requirements.pdf", "ui_mockup.png"]
             )
         """
-        root_result = self._generate(user_story, output_format)
+        additional_context = ""
+        
+        # Analyze additional files if provided
+        if additional_files:
+            try:
+                file_results = self.file_analyzer.analyze_multiple_files(additional_files)
+                additional_context = self.file_analyzer.generate_combined_analysis(file_results)
+            except Exception as e:
+                # Continue without file analysis if it fails
+                additional_context = f"Note: File analysis failed: {str(e)}"
+        
+        root_result = self._generate(user_story, output_format, additional_context)
         
         # Extract the actual list from the RootModel
         result = root_result.root
@@ -276,7 +308,8 @@ Scenario: {scenario.get('scenario', 'Untitled Scenario')}
         user_story: str,
         output_dir: str = ".",
         filename_prefix: str = "test_cases",
-        num_cases: Optional[int] = None
+        num_cases: Optional[int] = None,
+        additional_files: Optional[List[Union[str, Path]]] = None
     ) -> Dict[str, str]:
         """
         Generate test cases and export them to separate markdown files.
@@ -286,15 +319,26 @@ Scenario: {scenario.get('scenario', 'Untitled Scenario')}
             output_dir: Directory to save the markdown files
             filename_prefix: Prefix for the markdown filenames
             num_cases: Optional limit on number of test cases
+            additional_files: Optional list of file paths to analyze for additional context
             
         Returns:
             Dictionary with file paths of generated markdown files
         """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        # Generate both types of test cases
-        plain_tests = self.generate_test_cases(user_story, output_format="plain", num_cases=num_cases)
-        bdd_tests = self.generate_test_cases(user_story, output_format="bdd", num_cases=num_cases)
+        # Generate both types of test cases with file analysis
+        plain_tests = self.generate_test_cases(
+            user_story, 
+            output_format="plain", 
+            num_cases=num_cases,
+            additional_files=additional_files
+        )
+        bdd_tests = self.generate_test_cases(
+            user_story, 
+            output_format="bdd", 
+            num_cases=num_cases,
+            additional_files=additional_files
+        )
         
         # Format to markdown
         plain_md = self._format_plain_tests_to_markdown(plain_tests, user_story)

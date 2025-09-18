@@ -134,13 +134,24 @@ Volunteers cannot edit entries that were signed out via VisitorSafe.
             print(f"\n🎯 Processing {domain.title()} Use Case")
             print("-" * 40)
             
-            # Generate test cases
+            # Example: Simulate having additional files for analysis
+            # In a real scenario, these would be actual files provided by the user
+            additional_files = []
+            
+            # Check if there are any example files in the project
+            example_files_dir = Path("example_files")
+            if example_files_dir.exists():
+                additional_files = list(example_files_dir.glob("*"))
+                print(f"📎 Found {len(additional_files)} example files for analysis")
+            
+            # Generate test cases with file analysis
             output_dir = f"production_tests/{domain}"
             file_paths = generator.export_to_markdown(
                 user_story=story,
                 output_dir=output_dir,
                 filename_prefix=f"{domain}_tests",
-                num_cases=config.DEFAULT_NUM_CASES
+                num_cases=config.DEFAULT_NUM_CASES,
+                additional_files=additional_files if additional_files else None
             )
             
             print(f"📄 Plain English: {file_paths['plain_english']}")

@@ -8,7 +8,7 @@ This module provides a CLI for generating test cases from user stories.
 import argparse
 import sys
 import os
-from typing import Optional
+from typing import Optional, List
 from ._version import __version__
 from .generator import StoryBDDGenerator
 
@@ -20,9 +20,25 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Basic usage
   phoenix-smartcase --story "As a user, I want to login..." --output-dir ./tests
-  phoenix-smartcase --story-file story.txt --format bdd --num-cases 5
-  phoenix-smartcase --interactive
+  
+  # With additional files for context
+  phoenix-smartcase --story "As a user, I want to login..." \\
+                    --files requirements.pdf ui_mockup.png api_spec.json
+  
+  # Using a directory of files
+  phoenix-smartcase --story "As a user, I want to login..." \\
+                    --file-dir ./project_docs
+  
+  # Interactive mode with files
+  phoenix-smartcase --interactive --files wireframe.png user_manual.pdf
+  
+  # Generate only BDD format with files
+  phoenix-smartcase --story "As a user, I want to login..." \\
+                    --format bdd --files test_data.csv
+
+Supported file types: txt, md, pdf, docx, xlsx, csv, json, xml, png, jpg, mp4, etc.
 
 For more information, visit: https://github.com/yourusername/Phoenix-SmartCaseAI
         """
@@ -72,6 +88,18 @@ For more information, visit: https://github.com/yourusername/Phoenix-SmartCaseAI
         help="Filename prefix for generated files (default: generated_tests)"
     )
     
+    # File analysis options
+    parser.add_argument(
+        "--files", "-F",
+        nargs="*",
+        help="Additional files to analyze for context (supports: txt, md, pdf, docx, xlsx, csv, json, xml, png, jpg, mp4, etc.)"
+    )
+    parser.add_argument(
+        "--file-dir",
+        type=str,
+        help="Directory containing files to analyze (all supported files in directory will be analyzed)"
+    )
+    
     # LLM options
     parser.add_argument(
         "--api-key",
@@ -97,6 +125,9 @@ For more information, visit: https://github.com/yourusername/Phoenix-SmartCaseAI
         # Get user story
         user_story = get_user_story(args)
         
+        # Collect additional files
+        additional_files = get_additional_files(args)
+        
         if not args.quiet:
             print("🚀 Phoenix-SmartCaseAI: AI-Powered Test Case Generation")
             print("=" * 60)
@@ -105,6 +136,12 @@ For more information, visit: https://github.com/yourusername/Phoenix-SmartCaseAI
             print(f"📁 Output Directory: {args.output_dir}")
             print(f"🎯 Format: {args.format}")
             print(f"🔢 Number of Cases: {args.num_cases}")
+            if additional_files:
+                print(f"📎 Additional Files: {len(additional_files)} files")
+                for file_path in additional_files[:3]:  # Show first 3 files
+                    print(f"   - {os.path.basename(file_path)}")
+                if len(additional_files) > 3:
+                    print(f"   ... and {len(additional_files) - 3} more")
         
         # Initialize generator
         generator = StoryBDDGenerator(
@@ -114,6 +151,8 @@ For more information, visit: https://github.com/yourusername/Phoenix-SmartCaseAI
         
         if not args.quiet:
             print(f"\n✅ Generator initialized with OpenAI")
+            if additional_files:
+                print(f"🔍 Analyzing {len(additional_files)} additional files for context...")
         
         # Generate based on format
         if args.format == "both":
@@ -122,7 +161,8 @@ For more information, visit: https://github.com/yourusername/Phoenix-SmartCaseAI
                 user_story=user_story,
                 output_dir=args.output_dir,
                 filename_prefix=args.prefix,
-                num_cases=args.num_cases
+                num_cases=args.num_cases,
+                additional_files=additional_files
             )
             
             if not args.quiet:
@@ -138,7 +178,8 @@ For more information, visit: https://github.com/yourusername/Phoenix-SmartCaseAI
             test_cases = generator.generate_test_cases(
                 user_story=user_story,
                 output_format=args.format,
-                num_cases=args.num_cases
+                num_cases=args.num_cases,
+                additional_files=additional_files
             )
             
             if not args.quiet:
@@ -207,6 +248,45 @@ def get_user_story(args) -> str:
     
     else:
         raise ValueError("No user story source provided")
+
+
+def get_additional_files(args) -> List[str]:
+    """Get additional files for analysis from various sources."""
+    files = []
+    
+    # Add individual files
+    if args.files:
+        for file_path in args.files:
+            if os.path.exists(file_path):
+                files.append(file_path)
+            else:
+                print(f"⚠️  Warning: File not found: {file_path}")
+    
+    # Add files from directory
+    if args.file_dir:
+        if not os.path.exists(args.file_dir):
+            print(f"⚠️  Warning: Directory not found: {args.file_dir}")
+        else:
+            # Supported file extensions
+            supported_extensions = {
+                '.txt', '.md', '.markdown',  # Text files
+                '.pdf',  # PDF files
+                '.docx', '.doc',  # Word documents
+                '.xlsx', '.xls', '.csv',  # Spreadsheets
+                '.json',  # JSON files
+                '.xml',  # XML files
+                '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff',  # Images
+                '.mp4', '.avi', '.mov', '.wmv'  # Videos
+            }
+            
+            for root, dirs, filenames in os.walk(args.file_dir):
+                for filename in filenames:
+                    file_path = os.path.join(root, filename)
+                    file_ext = os.path.splitext(filename)[1].lower()
+                    if file_ext in supported_extensions:
+                        files.append(file_path)
+    
+    return files
 
 
 if __name__ == "__main__":

@@ -4,7 +4,16 @@ pydantic>=2.11.0,<3.0.0
 langchain-core>=0.3.70,<0.4.0
 langchain-openai>=0.3.30,<0.4.0
 
+# File analysis dependencies
+python-docx>=0.8.11,<1.0.0
+pandas>=2.0.0,<3.0.0
+openpyxl>=3.1.0,<4.0.0
+PyPDF2>=3.0.0,<4.0.0
+pdfplumber>=0.9.0,<1.0.0
+Pillow>=10.0.0,<11.0.0
+pytesseract>=0.3.10,<1.0.0
+openai>=1.99.9,<2.0.0
+
 # Runtime dependencies (automatically included via langchain)
-# openai>=1.99.9 - included via langchain-openai
 # typing-extensions>=4.7 - included via pydantic
 # PyYAML>=5.3 - included via langchain-core

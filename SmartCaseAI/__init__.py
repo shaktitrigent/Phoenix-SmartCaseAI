@@ -36,12 +36,15 @@ from .generator import (
     TestCaseList,
     BDDScenarioList
 )
+from .file_analyzer import FileAnalyzer, FileAnalysisResult
 
 # Public API - only expose what users need
 __all__ = [
     "StoryBDDGenerator",
     "TestCase", 
     "BDDScenario",
+    "FileAnalyzer",
+    "FileAnalysisResult",
     "__version__",
     "__author__",
     "__email__"
