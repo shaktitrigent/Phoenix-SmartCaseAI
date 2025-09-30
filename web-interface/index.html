@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Test Case Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .form-container {
+            padding: 40px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        textarea {
+            height: 150px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        
+        .file-upload {
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .file-upload:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+        
+        .file-upload.dragover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .file-list {
+            margin-top: 15px;
+        }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: #f7fafc;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        
+        .file-item .name {
+            flex: 1;
+            font-weight: 500;
+        }
+        
+        .file-item .size {
+            color: #718096;
+            font-size: 0.9em;
+        }
+        
+        .remove-file {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            width: 100%;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .progress {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results {
+            margin-top: 30px;
+            padding: 25px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 4px solid #48bb78;
+        }
+        
+        .error {
+            background: #fed7d7;
+            border-left-color: #e53e3e;
+            color: #c53030;
+        }
+        
+        .success h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+        
+        .download-links {
+            margin: 20px 0;
+        }
+        
+        .download-links a {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: background 0.3s ease;
+        }
+        
+        .download-links a:hover {
+            background: #5a67d8;
+        }
+        
+        .preview {
+            background: white;
+            padding: 20px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .github-link {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+        
+        .github-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Test Case Generator</h1>
+            <p>Generate comprehensive test cases from user stories using advanced AI</p>
+        </div>
+        
+        <div class="form-container">
+            <form id="testForm">
+                <div class="form-group">
+                    <label for="user_story">User Story / Requirements:</label>
+                    <textarea 
+                        id="user_story" 
+                        name="user_story" 
+                        placeholder="As a user, I want to securely process my payment through a comprehensive payment portal, so that I can complete my purchase quickly and safely with multiple payment options."
+                        required
+                    ></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="llm_provider">AI Provider:</label>
+                    <select id="llm_provider" name="llm_provider">
+                        <option value="openai">OpenAI GPT-4</option>
+                        <option value="gemini">Google Gemini</option>
+                        <option value="claude">Anthropic Claude</option>
+                        <option value="all" selected>All Providers (Best Results)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="output_format">Output Format:</label>
+                    <select id="output_format" name="output_format">
+                        <option value="plain">Plain English</option>
+                        <option value="bdd">BDD/Gherkin</option>
+                        <option value="both" selected>Both Formats</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="num_cases">Number of Test Cases:</label>
+                    <input 
+                        type="number" 
+                        id="num_cases" 
+                        name="num_cases" 
+                        value="10" 
+                        min="1" 
+                        max="50"
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label>Supporting Files (Optional):</label>
+                    <div class="file-upload" id="fileUpload">
+                        <p>📁 Drag & drop files here or click to select</p>
+                        <p style="color: #718096; font-size: 0.9em;">
+                            Supported: .txt, .pdf, .docx, .json, .csv, .xml, .png, .jpg, .jpeg, .webp
+                        </p>
+                        <input 
+                            type="file" 
+                            id="files" 
+                            name="files" 
+                            multiple 
+                            accept=".txt,.pdf,.docx,.json,.csv,.xml,.png,.jpg,.jpeg,.webp" 
+                            style="display: none;"
+                        >
+                    </div>
+                    <div id="fileList" class="file-list"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email for Results (Optional):</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        placeholder="your@email.com"
+                    >
+                </div>
+                
+                <button type="submit" class="button" id="submitBtn">
+                    🚀 Generate Test Cases
+                </button>
+            </form>
+            
+            <div class="progress hidden" id="progress">
+                <div class="spinner"></div>
+                <span>Generating test cases... This may take 1-2 minutes.</span>
+            </div>
+            
+            <div id="results"></div>
+            
+            <div class="github-link">
+                <p>💡 <strong>Tip:</strong> For advanced usage, check out our <a href="https://github.com/yourusername/Phoenix-SmartCaseAI">GitHub repository</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fileUpload = document.getElementById('fileUpload');
+        const fileInput = document.getElementById('files');
+        const fileList = document.getElementById('fileList');
+        const form = document.getElementById('testForm');
+        const progress = document.getElementById('progress');
+        const results = document.getElementById('results');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        // File upload handling
+        fileUpload.addEventListener('click', () => fileInput.click());
+        
+        fileUpload.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUpload.classList.add('dragover');
+        });
+        
+        fileUpload.addEventListener('dragleave', () => {
+            fileUpload.classList.remove('dragover');
+        });
+        
+        fileUpload.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUpload.classList.remove('dragover');
+            fileInput.files = e.dataTransfer.files;
+            updateFileList();
+        });
+        
+        fileInput.addEventListener('change', updateFileList);
+        
+        function updateFileList() {
+            fileList.innerHTML = '';
+            Array.from(fileInput.files).forEach((file, index) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.innerHTML = `
+                    <span class="name">📄 ${file.name}</span>
+                    <span class="size">(${(file.size/1024).toFixed(1)}KB)</span>
+                    <button type="button" class="remove-file" onclick="removeFile(${index})">×</button>
+                `;
+                fileList.appendChild(div);
+            });
+        }
+        
+        function removeFile(index) {
+            const dt = new DataTransfer();
+            Array.from(fileInput.files).forEach((file, i) => {
+                if (i !== index) dt.items.add(file);
+            });
+            fileInput.files = dt.files;
+            updateFileList();
+        }
+        
+        // Form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            
+            // Show progress
+            progress.classList.remove('hidden');
+            results.innerHTML = '';
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Generating...';
+            
+            try {
+                // For demo purposes, simulate API call
+                // In production, this would call your actual API
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Simulate successful response
+                const mockResponse = {
+                    success: true,
+                    session_id: 'demo_' + Date.now(),
+                    provider: formData.get('llm_provider'),
+                    num_cases: parseInt(formData.get('num_cases')),
+                    files_used: fileInput.files.length,
+                    generation_time: 1.8,
+                    plain_file: 'test_cases_plain.md',
+                    bdd_file: 'test_cases_bdd.md',
+                    preview: generateMockPreview(formData.get('user_story'))
+                };
+                
+                displayResults(mockResponse);
+                
+            } catch (error) {
+                displayError('Failed to generate test cases: ' + error.message);
+            } finally {
+                progress.classList.add('hidden');
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Generate Test Cases';
+            }
+        });
+        
+        function generateMockPreview(userStory) {
+            return `
+                <strong>Test Case 1:</strong> Valid payment processing with credit card<br>
+                Description: Verify that a user can successfully process payment using a valid credit card...<br><br>
+                
+                <strong>Test Case 2:</strong> Invalid card number handling<br>
+                Description: Verify that the system properly handles invalid credit card numbers...<br><br>
+                
+                <strong>Test Case 3:</strong> Payment timeout scenario<br>
+                Description: Verify system behavior when payment processing times out...
+            `;
+        }
+        
+        function displayResults(data) {
+            results.innerHTML = `
+                <div class="results success">
+                    <h3>✅ Test Cases Generated Successfully!</h3>
+                    <p><strong>Provider:</strong> ${data.provider}</p>
+                    <p><strong>Test Cases:</strong> ${data.num_cases}</p>
+                    <p><strong>Files Used:</strong> ${data.files_used}</p>
+                    <p><strong>Generation Time:</strong> ${data.generation_time}s</p>
+                    
+                    <div class="download-links">
+                        <a href="#" onclick="downloadFile('${data.plain_file}')">📄 Plain English Format</a>
+                        <a href="#" onclick="downloadFile('${data.bdd_file}')">📋 BDD/Gherkin Format</a>
+                        <a href="#" onclick="downloadZip('${data.session_id}')">📦 Download All (ZIP)</a>
+                    </div>
+                    
+                    <h4>📋 Preview:</h4>
+                    <div class="preview">
+                        ${data.preview}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function displayError(message) {
+            results.innerHTML = `
+                <div class="results error">
+                    <h3>❌ Error</h3>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+        
+        function downloadFile(filename) {
+            // In production, this would download the actual file
+            alert('Demo mode: Would download ' + filename);
+        }
+        
+        function downloadZip(sessionId) {
+            // In production, this would download the actual zip
+            alert('Demo mode: Would download ' + sessionId + '.zip');
+        }
+    </script>
+</body>
+</html>

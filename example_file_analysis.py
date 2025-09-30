@@ -15,7 +15,7 @@ if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent))
 
 from SmartCaseAI import StoryBDDGenerator, __version__
-from SmartCaseAI.file_analyzer import FileAnalyzer
+from SmartCaseAI.unified_file_analyzer import UnifiedFileAnalyzer
 
 
 def create_sample_files():
@@ -74,30 +74,30 @@ invalid-email,password123,failure
 user3@example.com,short,failure
         """)
     
-    print(f"✅ Created sample files in {sample_dir}")
+    print(f"[OK] Created sample files in {sample_dir}")
     return sample_dir
 
 
 def demonstrate_file_analysis():
     """Demonstrate file analysis capabilities."""
-    print("🔍 File Analysis Demonstration")
+    print("File Analysis Demonstration")
     print("=" * 50)
     
     # Create sample files
     sample_dir = create_sample_files()
     
     # Initialize file analyzer
-    analyzer = FileAnalyzer()
+    analyzer = UnifiedFileAnalyzer()
     
     # Analyze all files in the sample directory
     files_to_analyze = list(sample_dir.glob("*"))
-    print(f"\n📁 Analyzing {len(files_to_analyze)} files...")
+    print(f"\nAnalyzing {len(files_to_analyze)} files...")
     
     results = analyzer.analyze_multiple_files(files_to_analyze)
     
     # Display results
     for result in results:
-        print(f"\n📄 File: {Path(result.file_path).name}")
+        print(f"\nFile: {Path(result.file_path).name}")
         print(f"   Type: {result.file_type}")
         print(f"   Content preview: {result.content[:100]}...")
         if result.metadata:
@@ -105,7 +105,7 @@ def demonstrate_file_analysis():
     
     # Generate combined analysis
     combined_analysis = analyzer.generate_combined_analysis(results)
-    print(f"\n📋 Combined Analysis:")
+    print(f"\nCombined Analysis:")
     print(combined_analysis)
     
     return results
@@ -113,7 +113,7 @@ def demonstrate_file_analysis():
 
 def demonstrate_enhanced_test_generation():
     """Demonstrate enhanced test case generation with file analysis."""
-    print("\n🚀 Enhanced Test Case Generation")
+    print("\nEnhanced Test Case Generation")
     print("=" * 50)
     
     # User story
@@ -130,11 +130,11 @@ def demonstrate_enhanced_test_generation():
         # Initialize generator
         generator = StoryBDDGenerator(llm_provider="openai")
         
-        print(f"📖 User Story: {user_story.strip()}")
-        print(f"📎 Additional Files: {len(additional_files)} files")
+        print(f"User Story: {user_story.strip()}")
+        print(f"Additional Files: {len(additional_files)} files")
         
         # Generate test cases with file analysis
-        print("\n🔧 Generating test cases with file analysis...")
+        print("\nGenerating test cases with file analysis...")
         
         # Generate BDD scenarios
         bdd_cases = generator.generate_test_cases(
@@ -144,7 +144,7 @@ def demonstrate_enhanced_test_generation():
             additional_files=additional_files
         )
         
-        print(f"\n🥒 Generated {len(bdd_cases)} BDD scenarios:")
+        print(f"\n[OK] Generated {len(bdd_cases)} BDD scenarios:")
         for i, case in enumerate(bdd_cases, 1):
             print(f"\n{i}. {case.get('scenario', 'Untitled')}")
             print(f"   Feature: {case.get('feature', 'Not specified')}")
@@ -160,7 +160,7 @@ def demonstrate_enhanced_test_generation():
             additional_files=additional_files
         )
         
-        print(f"\n📝 Generated {len(plain_cases)} plain English test cases:")
+        print(f"\n[OK] Generated {len(plain_cases)} plain English test cases:")
         for i, case in enumerate(plain_cases, 1):
             print(f"\n{i}. {case.get('title', 'Untitled')}")
             print(f"   Description: {case.get('description', 'No description')}")
@@ -168,29 +168,29 @@ def demonstrate_enhanced_test_generation():
             print(f"   Steps: {len(case.get('steps', []))} steps")
         
         # Export to markdown files
-        print(f"\n💾 Exporting to markdown files...")
+        print(f"\nExporting to markdown files...")
         file_paths = generator.export_to_markdown(
             user_story=user_story,
-            output_dir="enhanced_test_output",
+            output_dir="examples/file_analysis",
             filename_prefix="login_tests_with_files",
             num_cases=5,
             additional_files=additional_files
         )
         
-        print(f"✅ Files exported:")
-        print(f"   📄 Plain English: {file_paths['plain_english']}")
-        print(f"   🥒 BDD: {file_paths['bdd']}")
+        print(f"[OK] Files exported:")
+        print(f"   Plain English: {file_paths['plain_english']}")
+        print(f"   BDD: {file_paths['bdd']}")
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"[ERROR] Error: {e}")
         if "API key" in str(e):
-            print("💡 Make sure to set your OpenAI API key:")
+            print("Make sure to set your OpenAI API key:")
             print("   export OPENAI_API_KEY='your-key-here'")
 
 
 def demonstrate_cli_usage():
     """Demonstrate CLI usage with file analysis."""
-    print("\n🖥️  CLI Usage Examples")
+    print("\nCLI Usage Examples")
     print("=" * 50)
     
     print("""
@@ -231,7 +231,7 @@ Supported file types:
 
 def main():
     """Main demonstration function."""
-    print(f"🚀 Phoenix-SmartCaseAI v{__version__} - File Analysis Demo")
+    print(f"Phoenix-SmartCaseAI v{__version__} - File Analysis Demo")
     print("=" * 60)
     
     try:
@@ -244,12 +244,12 @@ def main():
         # Show CLI usage examples
         demonstrate_cli_usage()
         
-        print(f"\n🎉 Demonstration completed successfully!")
-        print(f"📁 Check the 'enhanced_test_output/' directory for generated files.")
-        print(f"📁 Check the 'sample_files/' directory for example files.")
+        print(f"\n[OK] Demonstration completed successfully!")
+        print(f"Check the 'examples/file_analysis/' directory for generated files.")
+        print(f"Check the 'sample_files/' directory for example files.")
         
     except Exception as e:
-        print(f"❌ Error during demonstration: {e}")
+        print(f"[ERROR] Error during demonstration: {e}")
         return 1
     
     return 0

@@ -12,7 +12,12 @@ class Config:
     
     # API Configuration
     DEFAULT_LLM_PROVIDER = "openai"
-    DEFAULT_MODEL = "gpt-4o-mini"
+    SUPPORTED_LLM_PROVIDERS = ["openai", "gemini", "claude", "all"]
+    DEFAULT_MODELS = {
+        "openai": "gpt-4o-mini",
+        "gemini": "gemini-2.5-flash",
+        "claude": "claude-3-5-haiku-20241022"
+    }
     API_TIMEOUT = 30  # seconds
     MAX_RETRIES = 3
     
@@ -40,6 +45,7 @@ class Config:
         """Get API key from environment variables."""
         env_vars = {
             "openai": "OPENAI_API_KEY",
+            "gemini": "GOOGLE_API_KEY",
             "google": "GOOGLE_API_KEY",
             "anthropic": "ANTHROPIC_API_KEY"
         }
@@ -50,9 +56,15 @@ class Config:
         """Validate production environment setup."""
         issues = []
         
-        # Check for API key
+        # Check for API keys
         if not Config.get_api_key("openai"):
             issues.append("OPENAI_API_KEY environment variable not set")
+        
+        if not Config.get_api_key("gemini"):
+            issues.append("GOOGLE_API_KEY environment variable not set (for Gemini)")
+        
+        if not Config.get_api_key("claude"):
+            issues.append("ANTHROPIC_API_KEY environment variable not set (for Claude)")
         
         # Check Python version
         import sys

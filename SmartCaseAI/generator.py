@@ -2,13 +2,17 @@ import os
 from datetime import datetime
 from typing import List, Dict, Optional, Union
 from pathlib import Path
+import json
+import asyncio
 
 from pydantic import BaseModel, Field, RootModel
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_anthropic import ChatAnthropic
 
-from .file_analyzer import FileAnalyzer, FileAnalysisResult
+from .unified_file_analyzer import UnifiedFileAnalyzer
 
 
 class TestCase(BaseModel):
@@ -20,6 +24,7 @@ class TestCase(BaseModel):
     steps: List[str] = Field(description="Step-by-step instructions")
     expected: str = Field(description="Expected outcome")
     type: str = Field(description="Type: positive, negative, edge, etc.")
+    provider: Optional[str] = Field(default=None, description="LLM provider that generated this test case")
     
     @classmethod
     def model_json_schema(cls, by_alias=True, ref_template='#/$defs/{model}'):
@@ -43,6 +48,7 @@ class BDDScenario(BaseModel):
     given: List[str] = Field(description="Given steps (preconditions)")
     when: List[str] = Field(description="When steps (actions)")
     then: List[str] = Field(description="Then steps (expectations)")
+    provider: Optional[str] = Field(default=None, description="LLM provider that generated this scenario")
 
 
 class TestCaseList(RootModel[List[TestCase]]):
@@ -79,29 +85,73 @@ class StoryBDDGenerator:
     def __init__(
         self,
         llm_provider: str = "openai",
-        api_key: Optional[str] = None,
+        api_keys: Optional[Dict[str, str]] = None,
     ):
         """
-        Initialize the generator with chosen LLM.
+        Initialize the generator with chosen LLM provider(s).
         
         Args:
-            llm_provider: LLM provider to use (currently only "openai" supported)
-            api_key: API key for the LLM provider (optional, uses env var if not provided)
+            llm_provider: LLM provider to use ("openai", "gemini", "claude", or "all")
+            api_keys: Dictionary of API keys for different providers (optional, uses env vars if not provided)
         """
-        if llm_provider == "openai":
-            key = api_key or os.getenv("OPENAI_API_KEY")
-            if not key:
-                raise ValueError("OpenAI API key required. Set OPENAI_API_KEY environment variable or pass api_key parameter.")
-            self.llm = ChatOpenAI(model="gpt-5-nano", api_key=key)
-            self.file_analyzer = FileAnalyzer(openai_api_key=key)
-        else:
-            raise ValueError("Currently only 'openai' provider is supported.")
+        self.llm_provider = llm_provider
+        self.llms = {}
+        self.file_analyzer = None
+        
+        # Initialize API keys
+        if api_keys is None:
+            api_keys = {}
+        
+        # Setup providers based on selection
+        if llm_provider in ["openai", "all"]:
+            openai_key = api_keys.get("openai") or os.getenv("OPENAI_API_KEY")
+            if not openai_key:
+                raise ValueError("OpenAI API key required. Set OPENAI_API_KEY environment variable or pass in api_keys parameter.")
+            self.llms["openai"] = ChatOpenAI(model="gpt-4o-mini", api_key=openai_key)
+        
+        if llm_provider in ["gemini", "all"]:
+            gemini_key = api_keys.get("gemini") or os.getenv("GOOGLE_API_KEY")
+            if not gemini_key:
+                raise ValueError("Google API key required for Gemini. Set GOOGLE_API_KEY environment variable or pass in api_keys parameter.")
+            try:
+                self.llms["gemini"] = ChatGoogleGenerativeAI(
+                    model="gemini-2.5-flash",
+                    google_api_key=gemini_key,
+                    temperature=0.3
+                )
+            except Exception as e:
+                print(f"Warning: Failed to initialize Gemini model: {e}")
+                # Don't add gemini to available LLMs if it fails to initialize
+            # File analysis will be handled by SmartFileAnalyzer after LLM setup
+        
+        if llm_provider in ["claude", "all"]:
+            claude_key = api_keys.get("claude") or os.getenv("ANTHROPIC_API_KEY")
+            if not claude_key:
+                raise ValueError("Anthropic API key required for Claude. Set ANTHROPIC_API_KEY environment variable or pass in api_keys parameter.")
+            self.llms["claude"] = ChatAnthropic(
+                model="claude-3-5-haiku-20241022",
+                api_key=claude_key,
+                temperature=0.3
+            )
+            # File analysis will be handled by SmartFileAnalyzer after LLM setup
+        
+        if not self.llms:
+            raise ValueError(f"Unsupported LLM provider: {llm_provider}. Supported providers: openai, gemini, claude, all")
+        
+        # Initialize UnifiedFileAnalyzer with all available API keys for intelligent routing
+        self.file_analyzer = UnifiedFileAnalyzer(
+            openai_api_key=api_keys.get("openai") or os.getenv("OPENAI_API_KEY"),
+            google_api_key=api_keys.get("gemini") or os.getenv("GOOGLE_API_KEY"),
+            anthropic_api_key=api_keys.get("claude") or os.getenv("ANTHROPIC_API_KEY")
+        )
 
-    def _generate(self, user_story: str, output_format: str, additional_context: str = "") -> Dict:
+    def _generate_with_single_provider(self, provider_name: str, llm, user_story: str, output_format: str, additional_context: str = "") -> Dict:
         """
-        Internal method to generate test cases using LLM.
+        Generate test cases using a single LLM provider.
         
         Args:
+            provider_name: Name of the provider (for logging/error handling)
+            llm: The LLM instance to use
             user_story: The user story to generate tests for
             output_format: Output format ("plain" or "bdd")
             additional_context: Additional context from file analysis
@@ -143,7 +193,7 @@ class StoryBDDGenerator:
             raise ValueError("Output format must be 'plain' or 'bdd'.")
 
         prompt = ChatPromptTemplate.from_template(prompt_template)
-        chain = prompt | self.llm
+        chain = prompt | llm
 
         try:
             # Get raw response from LLM
@@ -160,7 +210,6 @@ class StoryBDDGenerator:
                 return parser.parse(response_content)
             except Exception as parse_error:
                 # Fallback: Try to handle the case where LLM returns {"items": [...]}
-                import json
                 try:
                     parsed_json = json.loads(response_content)
                     if isinstance(parsed_json, dict) and "items" in parsed_json:
@@ -175,7 +224,80 @@ class StoryBDDGenerator:
                     raise parse_error
                     
         except Exception as e:
-            raise Exception(f"Failed to generate {output_format} test cases: {str(e)}")
+            raise Exception(f"Failed to generate {output_format} test cases with {provider_name}: {str(e)}")
+
+
+    def _generate_with_multiple_providers(self, user_story: str, output_format: str, additional_context: str = "") -> Dict:
+        """
+        Generate test cases using multiple LLM providers and combine results.
+        
+        Args:
+            user_story: The user story to generate tests for
+            output_format: Output format ("plain" or "bdd")
+            additional_context: Additional context from file analysis
+        """
+        all_results = {}
+        
+        # Generate with each available provider
+        for provider_name, llm in self.llms.items():
+            try:
+                result = self._generate_with_single_provider(
+                    provider_name, llm, user_story, output_format, additional_context
+                )
+                all_results[provider_name] = result
+            except Exception as e:
+                print(f"Warning: Failed to generate with {provider_name}: {str(e)}")
+                continue
+        
+        if not all_results:
+            raise Exception("All LLM providers failed to generate test cases")
+        
+        # If only one provider succeeded, return its result
+        if len(all_results) == 1:
+            return list(all_results.values())[0]
+        
+        # Combine results from all providers
+        combined_cases = []
+        case_id_counter = 1
+        
+        for provider_name, result in all_results.items():
+            provider_cases = result.root if hasattr(result, 'root') else result
+            
+            # Add provider information and renumber IDs
+            for case in provider_cases:
+                case_dict = case.dict() if hasattr(case, 'dict') else case
+                case_dict['id'] = case_id_counter
+                case_dict['provider'] = provider_name  # Track which provider generated this
+                combined_cases.append(case_dict)
+                case_id_counter += 1
+        
+        # Create a new root model with combined results
+        if output_format.lower() == "plain":
+            # Convert back to TestCase objects
+            test_cases = [TestCase(**case) for case in combined_cases]
+            return TestCaseList(test_cases)
+        else:
+            # Convert back to BDDScenario objects
+            bdd_scenarios = [BDDScenario(**case) for case in combined_cases]
+            return BDDScenarioList(bdd_scenarios)
+
+    def _generate(self, user_story: str, output_format: str, additional_context: str = "") -> Dict:
+        """
+        Internal method to generate test cases using configured LLM provider(s).
+        
+        Args:
+            user_story: The user story to generate tests for
+            output_format: Output format ("plain" or "bdd")
+            additional_context: Additional context from file analysis
+        """
+        # Use multiple providers if "all" is selected or if multiple providers are configured
+        if self.llm_provider == "all" or len(self.llms) > 1:
+            return self._generate_with_multiple_providers(user_story, output_format, additional_context)
+        else:
+            # Use single provider
+            provider_name = list(self.llms.keys())[0]
+            llm = list(self.llms.values())[0]
+            return self._generate_with_single_provider(provider_name, llm, user_story, output_format, additional_context)
 
     def generate_test_cases(
         self,
@@ -206,7 +328,24 @@ class StoryBDDGenerator:
         """
         additional_context = ""
         
-        # Analyze additional files if provided
+        # Auto-discover input_files if no additional_files provided
+        if additional_files is None:
+            input_files_dir = Path("input_files")
+            if input_files_dir.exists():
+                # Find all supported files in input_files directory
+                supported_extensions = {'.txt', '.md', '.json', '.csv', '.xml', '.pdf', '.docx', '.png', '.jpg', '.jpeg', '.webp'}
+                auto_files = []
+                for file_path in input_files_dir.iterdir():
+                    if (file_path.is_file() and 
+                        file_path.suffix.lower() in supported_extensions and
+                        file_path.name.lower() != 'readme.md'):
+                        auto_files.append(str(file_path))
+                
+                if auto_files:
+                    additional_files = auto_files
+                    print(f"Auto-discovered {len(auto_files)} supporting files from input_files/")
+        
+        # Analyze additional files if available
         if additional_files:
             try:
                 file_results = self.file_analyzer.analyze_multiple_files(additional_files)
@@ -228,18 +367,29 @@ class StoryBDDGenerator:
         """Format plain English test cases to markdown format."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        md_content = f"""# Test Cases - Plain English Format
+        # Check if any test case has provider info (indicating multi-provider mode)
+        has_provider_info = any('provider' in case for case in test_cases)
+        
+        if has_provider_info:
+            provider_text = " (Multi-Provider)"
+        else:
+            provider_text = ""
+        
+        md_content = f"""# Test Cases - Plain English Format{provider_text}
 
 **Generated on:** {timestamp}
 
 **User Story:** {user_story}
+
+**LLM Provider(s):** {self.llm_provider}
 
 ---
 
 """
         
         for i, case in enumerate(test_cases, 1):
-            md_content += f"""## Test Case {case.get('id', i)}: {case.get('title', 'Untitled')}
+            provider_info = f" (Generated by: {case.get('provider', 'Unknown')})" if has_provider_info else ""
+            md_content += f"""## Test Case {case.get('id', i)}: {case.get('title', 'Untitled')}{provider_info}
 
 **Description:** {case.get('description', 'No description provided')}
 
@@ -266,18 +416,29 @@ class StoryBDDGenerator:
         """Format BDD scenarios to markdown format."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        md_content = f"""# BDD Test Scenarios - Gherkin Format
+        # Check if any scenario has provider info (indicating multi-provider mode)
+        has_provider_info = any('provider' in scenario for scenario in bdd_scenarios)
+        
+        if has_provider_info:
+            provider_text = " (Multi-Provider)"
+        else:
+            provider_text = ""
+        
+        md_content = f"""# BDD Test Scenarios - Gherkin Format{provider_text}
 
 **Generated on:** {timestamp}
 
 **User Story:** {user_story}
+
+**LLM Provider(s):** {self.llm_provider}
 
 ---
 
 """
         
         for i, scenario in enumerate(bdd_scenarios, 1):
-            md_content += f"""## Scenario {i}: {scenario.get('scenario', 'Untitled Scenario')}
+            provider_info = f" (Generated by: {scenario.get('provider', 'Unknown')})" if has_provider_info else ""
+            md_content += f"""## Scenario {i}: {scenario.get('scenario', 'Untitled Scenario')}{provider_info}
 
 **Feature:** {scenario.get('feature', 'Not specified')}
 
@@ -369,19 +530,103 @@ Scenario: {scenario.get('scenario', 'Untitled Scenario')}
 
 # Example usage
 if __name__ == "__main__":
-    gen = StoryBDDGenerator(llm_provider="openai")
-    
     # Example user story
     story = "As a user, I want to reset my password so I can regain access if forgotten."
     
-    # Generate and export to separate markdown files
-    print("Generating test cases and exporting to markdown files...")
-    file_paths = gen.export_to_markdown(
-        user_story=story,
-        output_dir="test_output",
-        filename_prefix="password_reset_tests",
-        num_cases=5
-    )
+    print("Phoenix-SmartCaseAI Multi-Provider Test Case Generator")
+    print("=" * 60)
     
-    print(f"✅ Plain English tests saved to: {file_paths['plain_english']}")
-    print(f"✅ BDD tests saved to: {file_paths['bdd']}")
+    # Example 1: OpenAI only
+    print("\n1. Generating with OpenAI only...")
+    try:
+        gen_openai = StoryBDDGenerator(llm_provider="openai")
+        file_paths_openai = gen_openai.export_to_markdown(
+            user_story=story,
+            output_dir="test_output",
+            filename_prefix="password_reset_openai",
+            num_cases=3
+        )
+        print(f"[OK] OpenAI Plain English tests: {file_paths_openai['plain_english']}")
+        print(f"[OK] OpenAI BDD tests: {file_paths_openai['bdd']}")
+    except Exception as e:
+        print(f"[ERROR] OpenAI generation failed: {e}")
+    
+    # Example 2: Gemini only
+    print("\n2. Generating with Gemini only...")
+    try:
+        gen_gemini = StoryBDDGenerator(llm_provider="gemini")
+        file_paths_gemini = gen_gemini.export_to_markdown(
+            user_story=story,
+            output_dir="test_output",
+            filename_prefix="password_reset_gemini",
+            num_cases=3
+        )
+        print(f"[OK] Gemini Plain English tests: {file_paths_gemini['plain_english']}")
+        print(f"[OK] Gemini BDD tests: {file_paths_gemini['bdd']}")
+    except Exception as e:
+        print(f"[ERROR] Gemini generation failed: {e}")
+    
+    # Example 3: Claude only
+    print("\n3. Generating with Claude only...")
+    try:
+        gen_claude = StoryBDDGenerator(llm_provider="claude")
+        file_paths_claude = gen_claude.export_to_markdown(
+            user_story=story,
+            output_dir="test_output",
+            filename_prefix="password_reset_claude",
+            num_cases=3
+        )
+        print(f"[OK] Claude Plain English tests: {file_paths_claude['plain_english']}")
+        print(f"[OK] Claude BDD tests: {file_paths_claude['bdd']}")
+    except Exception as e:
+        print(f"[ERROR] Claude generation failed: {e}")
+    
+    # Example 4: Multi-provider (OpenAI + Gemini + Claude)
+    print("\n4. Generating with ALL providers (OpenAI + Gemini + Claude)...")
+    try:
+        gen_all = StoryBDDGenerator(llm_provider="all")
+        file_paths_all = gen_all.export_to_markdown(
+            user_story=story,
+            output_dir="test_output",
+            filename_prefix="password_reset_all_providers",
+            num_cases=15  # Will get more test cases from combined providers
+        )
+        print(f"[OK] All-Providers Plain English tests: {file_paths_all['plain_english']}")
+        print(f"[OK] All-Providers BDD tests: {file_paths_all['bdd']}")
+        print("All-providers generation combines results from OpenAI, Gemini, and Claude!")
+    except Exception as e:
+        print(f"[ERROR] All-providers generation failed: {e}")
+    
+    # Example 5: Custom API keys
+    print("\n5. Example with custom API keys...")
+    print("# You can also pass custom API keys:")
+    print("""
+    custom_keys = {
+        "openai": "your-openai-key-here",
+        "gemini": "your-google-api-key-here",
+        "claude": "your-anthropic-api-key-here"
+    }
+    gen_custom = StoryBDDGenerator(
+        llm_provider="all", 
+        api_keys=custom_keys
+    )
+    """)
+    
+    print("\nBenefits of Multi-Provider Generation:")
+    print("   • More diverse test case perspectives")
+    print("   • Better coverage of edge cases")
+    print("   • Fallback if one provider fails")
+    print("   • Compare different LLM approaches")
+    print("   • Each test case is labeled with its source provider")
+    
+    print("\nAvailable LLM Providers:")
+    print("   • 'openai' - Use OpenAI GPT models only")
+    print("   • 'gemini' - Use Google Gemini models only") 
+    print("   • 'claude' - Use Claude (Anthropic) models only")
+    print("   • 'all' - Use all providers and combine results")
+    
+    print("\nRequired Environment Variables:")
+    print("   • OPENAI_API_KEY - for OpenAI provider")
+    print("   • GOOGLE_API_KEY - for Gemini provider")
+    print("   • ANTHROPIC_API_KEY - for Claude provider")
+    print("   • Set all three for 'all' provider mode")

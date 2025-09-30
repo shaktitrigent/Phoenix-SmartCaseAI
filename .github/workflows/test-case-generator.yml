@@ -1,0 +1,548 @@
+name: AI Test Case Generator
+
+on:
+  workflow_dispatch:
+    inputs:
+      user_story:
+        description: 'User Story or Requirements'
+        required: true
+        type: string
+        default: 'As a user, I want to securely process my payment through a comprehensive payment portal, so that I can complete my purchase quickly and safely with multiple payment options.'
+      
+      llm_provider:
+        description: 'LLM Provider'
+        required: true
+        type: choice
+        options:
+          - openai
+          - gemini
+          - claude
+          - all
+        default: 'all'
+      
+      output_format:
+        description: 'Output Format'
+        required: true
+        type: choice
+        options:
+          - plain
+          - bdd
+          - both
+        default: 'both'
+      
+      num_cases:
+        description: 'Number of Test Cases'
+        required: true
+        type: number
+        default: 10
+      
+      email:
+        description: 'Email for results (optional)'
+        required: false
+        type: string
+
+jobs:
+  generate-test-cases:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install gunicorn flask python-multipart
+    
+    - name: Create input files directory
+      run: mkdir -p input_files
+    
+    - name: Create web interface
+      run: |
+        cat > web_interface.py << 'EOF'
+        from flask import Flask, request, render_template, send_file, jsonify
+        import os
+        import tempfile
+        import zipfile
+        from pathlib import Path
+        from SmartCaseAI.generator import StoryBDDGenerator
+        import json
+        from datetime import datetime
+        
+        app = Flask(__name__)
+        app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+        
+        @app.route('/')
+        def index():
+            return '''
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>AI Test Case Generator</title>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <style>
+                    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+                    .form-group { margin-bottom: 20px; }
+                    label { display: block; margin-bottom: 5px; font-weight: bold; }
+                    input, textarea, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+                    textarea { height: 150px; resize: vertical; }
+                    button { background: #007cba; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; }
+                    button:hover { background: #005a87; }
+                    .file-upload { border: 2px dashed #ccc; padding: 20px; text-align: center; margin: 10px 0; }
+                    .file-upload.dragover { border-color: #007cba; background: #f0f8ff; }
+                    .progress { display: none; margin: 20px 0; }
+                    .results { margin-top: 20px; padding: 20px; background: #f9f9f9; border-radius: 4px; }
+                    .error { color: red; }
+                    .success { color: green; }
+                </style>
+            </head>
+            <body>
+                <h1>🤖 AI Test Case Generator</h1>
+                <p>Generate comprehensive test cases from user stories using AI</p>
+                
+                <form id="testForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="user_story">User Story / Requirements:</label>
+                        <textarea id="user_story" name="user_story" placeholder="As a user, I want to..." required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="llm_provider">AI Provider:</label>
+                        <select id="llm_provider" name="llm_provider">
+                            <option value="openai">OpenAI GPT</option>
+                            <option value="gemini">Google Gemini</option>
+                            <option value="claude">Anthropic Claude</option>
+                            <option value="all" selected>All Providers (Best Results)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="output_format">Output Format:</label>
+                        <select id="output_format" name="output_format">
+                            <option value="plain">Plain English</option>
+                            <option value="bdd">BDD/Gherkin</option>
+                            <option value="both" selected>Both Formats</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="num_cases">Number of Test Cases:</label>
+                        <input type="number" id="num_cases" name="num_cases" value="10" min="1" max="50">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Supporting Files (Optional):</label>
+                        <div class="file-upload" id="fileUpload">
+                            <p>📁 Drag & drop files here or click to select</p>
+                            <p>Supported: .txt, .pdf, .docx, .json, .csv, .xml, .png, .jpg</p>
+                            <input type="file" id="files" name="files" multiple accept=".txt,.pdf,.docx,.json,.csv,.xml,.png,.jpg,.jpeg,.webp" style="display: none;">
+                        </div>
+                        <div id="fileList"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email for Results (Optional):</label>
+                        <input type="email" id="email" name="email" placeholder="your@email.com">
+                    </div>
+                    
+                    <button type="submit">🚀 Generate Test Cases</button>
+                </form>
+                
+                <div class="progress" id="progress">
+                    <p>⏳ Generating test cases... This may take 1-2 minutes.</p>
+                </div>
+                
+                <div id="results"></div>
+                
+                <script>
+                    const fileUpload = document.getElementById('fileUpload');
+                    const fileInput = document.getElementById('files');
+                    const fileList = document.getElementById('fileList');
+                    const form = document.getElementById('testForm');
+                    const progress = document.getElementById('progress');
+                    const results = document.getElementById('results');
+                    
+                    // File upload handling
+                    fileUpload.addEventListener('click', () => fileInput.click());
+                    fileUpload.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        fileUpload.classList.add('dragover');
+                    });
+                    fileUpload.addEventListener('dragleave', () => {
+                        fileUpload.classList.remove('dragover');
+                    });
+                    fileUpload.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        fileUpload.classList.remove('dragover');
+                        fileInput.files = e.dataTransfer.files;
+                        updateFileList();
+                    });
+                    
+                    fileInput.addEventListener('change', updateFileList);
+                    
+                    function updateFileList() {
+                        fileList.innerHTML = '';
+                        Array.from(fileInput.files).forEach((file, index) => {
+                            const div = document.createElement('div');
+                            div.innerHTML = `📄 ${file.name} (${(file.size/1024).toFixed(1)}KB)`;
+                            fileList.appendChild(div);
+                        });
+                    }
+                    
+                    // Form submission
+                    form.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        
+                        const formData = new FormData(form);
+                        
+                        progress.style.display = 'block';
+                        results.innerHTML = '';
+                        
+                        try {
+                            const response = await fetch('/generate', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            const data = await response.json();
+                            
+                            if (data.success) {
+                                results.innerHTML = `
+                                    <div class="results">
+                                        <h3>✅ Test Cases Generated Successfully!</h3>
+                                        <p><strong>Provider:</strong> ${data.provider}</p>
+                                        <p><strong>Test Cases:</strong> ${data.num_cases}</p>
+                                        <p><strong>Files Used:</strong> ${data.files_used}</p>
+                                        <p><strong>Generation Time:</strong> ${data.generation_time}s</p>
+                                        
+                                        <h4>📥 Download Results:</h4>
+                                        <p><a href="/download/${data.session_id}" class="button">📦 Download All Files (ZIP)</a></p>
+                                        ${data.plain_file ? `<p><a href="/file/${data.plain_file}">📄 Plain English Format</a></p>` : ''}
+                                        ${data.bdd_file ? `<p><a href="/file/${data.bdd_file}">📋 BDD/Gherkin Format</a></p>` : ''}
+                                        
+                                        <h4>📋 Preview:</h4>
+                                        <div style="background: white; padding: 15px; border-radius: 4px; max-height: 300px; overflow-y: auto;">
+                                            ${data.preview}
+                                        </div>
+                                    </div>
+                                `;
+                            } else {
+                                results.innerHTML = `<div class="error">❌ Error: ${data.error}</div>`;
+                            }
+                        } catch (error) {
+                            results.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+                        } finally {
+                            progress.style.display = 'none';
+                        }
+                    });
+                </script>
+            </body>
+            </html>
+            '''
+        
+        @app.route('/generate', methods=['POST'])
+        def generate_test_cases():
+            try:
+                # Get form data
+                user_story = request.form.get('user_story', '')
+                llm_provider = request.form.get('llm_provider', 'all')
+                output_format = request.form.get('output_format', 'both')
+                num_cases = int(request.form.get('num_cases', 10))
+                email = request.form.get('email', '')
+                
+                if not user_story.strip():
+                    return jsonify({'success': False, 'error': 'User story is required'})
+                
+                # Handle file uploads
+                files_used = 0
+                if 'files' in request.files:
+                    uploaded_files = request.files.getlist('files')
+                    for file in uploaded_files:
+                        if file.filename:
+                            file_path = Path('input_files') / file.filename
+                            file.save(file_path)
+                            files_used += 1
+                
+                # Initialize generator
+                start_time = datetime.now()
+                generator = StoryBDDGenerator(llm_provider=llm_provider)
+                
+                # Generate test cases
+                session_id = f"test_cases_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                output_dir = f"output/{session_id}"
+                os.makedirs(output_dir, exist_ok=True)
+                
+                # Auto-discover additional files
+                additional_files = []
+                input_files_dir = Path('input_files')
+                if input_files_dir.exists():
+                    supported_extensions = {'.txt', '.md', '.json', '.csv', '.xml', '.pdf', '.docx', '.png', '.jpg', '.jpeg', '.webp'}
+                    for file_path in input_files_dir.iterdir():
+                        if (file_path.is_file() and 
+                            file_path.suffix.lower() in supported_extensions and
+                            file_path.name.lower() != 'readme.md'):
+                            additional_files.append(str(file_path))
+                
+                # Generate based on format
+                plain_file = None
+                bdd_file = None
+                
+                if output_format in ['plain', 'both']:
+                    plain_cases = generator.generate_test_cases(
+                        user_story, 
+                        output_format="plain", 
+                        num_cases=num_cases,
+                        additional_files=additional_files
+                    )
+                    plain_file = f"{session_id}_plain.md"
+                    plain_path = Path(output_dir) / plain_file
+                    with open(plain_path, 'w', encoding='utf-8') as f:
+                        f.write(f"# Test Cases - Plain English Format\n\n")
+                        f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                        f.write(f"**Provider:** {llm_provider}\n")
+                        f.write(f"**User Story:** {user_story}\n\n")
+                        for i, case in enumerate(plain_cases, 1):
+                            f.write(f"## Test Case {i}: {case.get('title', 'Untitled')}\n\n")
+                            f.write(f"**Description:** {case.get('description', 'No description')}\n\n")
+                            f.write(f"**Steps:**\n")
+                            for j, step in enumerate(case.get('steps', []), 1):
+                                f.write(f"{j}. {step}\n")
+                            f.write(f"\n**Expected Result:** {case.get('expected', 'Not specified')}\n\n")
+                
+                if output_format in ['bdd', 'both']:
+                    bdd_cases = generator.generate_test_cases(
+                        user_story, 
+                        output_format="bdd", 
+                        num_cases=num_cases,
+                        additional_files=additional_files
+                    )
+                    bdd_file = f"{session_id}_bdd.md"
+                    bdd_path = Path(output_dir) / bdd_file
+                    with open(bdd_path, 'w', encoding='utf-8') as f:
+                        f.write(f"# BDD Test Scenarios - Gherkin Format\n\n")
+                        f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                        f.write(f"**Provider:** {llm_provider}\n")
+                        f.write(f"**User Story:** {user_story}\n\n")
+                        for i, scenario in enumerate(bdd_cases, 1):
+                            f.write(f"## Scenario {i}: {scenario.get('scenario', 'Untitled')}\n\n")
+                            f.write(f"**Feature:** {scenario.get('feature', 'Test Feature')}\n\n")
+                            f.write(f"```gherkin\n")
+                            f.write(f"Feature: {scenario.get('feature', 'Test Feature')}\n\n")
+                            f.write(f"Scenario: {scenario.get('scenario', 'Untitled')}\n")
+                            for step in scenario.get('steps', []):
+                                f.write(f"  {step}\n")
+                            f.write(f"```\n\n")
+                
+                generation_time = (datetime.now() - start_time).total_seconds()
+                
+                # Create preview
+                preview_cases = plain_cases if output_format in ['plain', 'both'] else bdd_cases
+                preview = ""
+                for i, case in enumerate(preview_cases[:3], 1):
+                    if output_format in ['plain', 'both']:
+                        preview += f"**Test Case {i}:** {case.get('title', 'Untitled')}\n"
+                        preview += f"Description: {case.get('description', 'No description')[:100]}...\n\n"
+                    else:
+                        preview += f"**Scenario {i}:** {case.get('scenario', 'Untitled')}\n"
+                        preview += f"Feature: {case.get('feature', 'Test Feature')}\n\n"
+                
+                return jsonify({
+                    'success': True,
+                    'session_id': session_id,
+                    'provider': llm_provider,
+                    'num_cases': len(preview_cases),
+                    'files_used': len(additional_files),
+                    'generation_time': round(generation_time, 2),
+                    'plain_file': plain_file,
+                    'bdd_file': bdd_file,
+                    'preview': preview
+                })
+                
+            except Exception as e:
+                return jsonify({'success': False, 'error': str(e)})
+        
+        @app.route('/download/<session_id>')
+        def download_zip(session_id):
+            try:
+                output_dir = Path(f"output/{session_id}")
+                zip_path = Path(f"output/{session_id}.zip")
+                
+                with zipfile.ZipFile(zip_path, 'w') as zipf:
+                    for file_path in output_dir.rglob('*'):
+                        if file_path.is_file():
+                            zipf.write(file_path, file_path.relative_to(output_dir))
+                
+                return send_file(zip_path, as_attachment=True, download_name=f"{session_id}.zip")
+            except Exception as e:
+                return f"Error creating zip: {str(e)}", 500
+        
+        @app.route('/file/<filename>')
+        def download_file(filename):
+            try:
+                file_path = Path(f"output") / filename
+                return send_file(file_path, as_attachment=True)
+            except Exception as e:
+                return f"Error downloading file: {str(e)}", 500
+        
+        if __name__ == '__main__':
+            app.run(host='0.0.0.0', port=8080, debug=False)
+        EOF
+    
+    - name: Start web server
+      run: |
+        python web_interface.py &
+        sleep 5
+    
+    - name: Run web interface tests
+      run: |
+        curl -f http://localhost:8080/ || exit 1
+    
+    - name: Generate test cases using workflow inputs
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      run: |
+        python -c "
+        from SmartCaseAI.generator import StoryBDDGenerator
+        from pathlib import Path
+        import os
+        
+        # Create input files directory
+        os.makedirs('input_files', exist_ok=True)
+        
+        # Save user story to file
+        with open('input_files/user_story.txt', 'w') as f:
+            f.write('${{ github.event.inputs.user_story }}')
+        
+        # Initialize generator
+        generator = StoryBDDGenerator(llm_provider='${{ github.event.inputs.llm_provider }}')
+        
+        # Generate test cases
+        print('Generating test cases...')
+        if '${{ github.event.inputs.output_format }}' in ['plain', 'both']:
+            plain_cases = generator.generate_test_cases(
+                '${{ github.event.inputs.user_story }}',
+                output_format='plain',
+                num_cases=${{ github.event.inputs.num_cases }}
+            )
+            print(f'Generated {len(plain_cases)} plain English test cases')
+        
+        if '${{ github.event.inputs.output_format }}' in ['bdd', 'both']:
+            bdd_cases = generator.generate_test_cases(
+                '${{ github.event.inputs.user_story }}',
+                output_format='bdd',
+                num_cases=${{ github.event.inputs.num_cases }}
+            )
+            print(f'Generated {len(bdd_cases)} BDD scenarios')
+        
+        print('Test case generation completed successfully!')
+        "
+    
+    - name: Create output directory
+      run: mkdir -p output
+    
+    - name: Generate final test case files
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      run: |
+        python -c "
+        from SmartCaseAI.generator import StoryBDDGenerator
+        from pathlib import Path
+        from datetime import datetime
+        import os
+        
+        # Create input files directory
+        os.makedirs('input_files', exist_ok=True)
+        
+        # Save user story to file
+        with open('input_files/user_story.txt', 'w') as f:
+            f.write('${{ github.event.inputs.user_story }}')
+        
+        # Initialize generator
+        generator = StoryBDDGenerator(llm_provider='${{ github.event.inputs.llm_provider }}')
+        
+        # Create output directory
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        output_dir = f'output/test_cases_{timestamp}'
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Generate test cases
+        if '${{ github.event.inputs.output_format }}' in ['plain', 'both']:
+            plain_cases = generator.generate_test_cases(
+                '${{ github.event.inputs.user_story }}',
+                output_format='plain',
+                num_cases=${{ github.event.inputs.num_cases }}
+            )
+            
+            # Write plain English test cases
+            with open(f'{output_dir}/test_cases_plain.md', 'w', encoding='utf-8') as f:
+                f.write(f'# Test Cases - Plain English Format\n\n')
+                f.write(f'**Generated:** {datetime.now().strftime(\"%Y-%m-%d %H:%M:%S\")}\n')
+                f.write(f'**Provider:** ${{ github.event.inputs.llm_provider }}\n')
+                f.write(f'**User Story:** ${{ github.event.inputs.user_story }}\n\n')
+                for i, case in enumerate(plain_cases, 1):
+                    f.write(f'## Test Case {i}: {case.get(\"title\", \"Untitled\")}\n\n')
+                    f.write(f'**Description:** {case.get(\"description\", \"No description\")}\n\n')
+                    f.write(f'**Steps:**\n')
+                    for j, step in enumerate(case.get('steps', []), 1):
+                        f.write(f'{j}. {step}\n')
+                    f.write(f'\n**Expected Result:** {case.get(\"expected\", \"Not specified\")}\n\n')
+        
+        if '${{ github.event.inputs.output_format }}' in ['bdd', 'both']:
+            bdd_cases = generator.generate_test_cases(
+                '${{ github.event.inputs.user_story }}',
+                output_format='bdd',
+                num_cases=${{ github.event.inputs.num_cases }}
+            )
+            
+            # Write BDD scenarios
+            with open(f'{output_dir}/test_cases_bdd.md', 'w', encoding='utf-8') as f:
+                f.write(f'# BDD Test Scenarios - Gherkin Format\n\n')
+                f.write(f'**Generated:** {datetime.now().strftime(\"%Y-%m-%d %H:%M:%S\")}\n')
+                f.write(f'**Provider:** ${{ github.event.inputs.llm_provider }}\n')
+                f.write(f'**User Story:** ${{ github.event.inputs.user_story }}\n\n')
+                for i, scenario in enumerate(bdd_cases, 1):
+                    f.write(f'## Scenario {i}: {scenario.get(\"scenario\", \"Untitled\")}\n\n')
+                    f.write(f'**Feature:** {scenario.get(\"feature\", \"Test Feature\")}\n\n')
+                    f.write(f'```gherkin\n')
+                    f.write(f'Feature: {scenario.get(\"feature\", \"Test Feature\")}\n\n')
+                    f.write(f'Scenario: {scenario.get(\"scenario\", \"Untitled\")}\n')
+                    for step in scenario.get('steps', []):
+                        f.write(f'  {step}\n')
+                    f.write(f'```\n\n')
+        
+        print(f'Test cases generated in {output_dir}/')
+        "
+    
+    - name: Upload test case files as artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-cases-${{ github.run_number }}
+        path: output/
+        retention-days: 30
+    
+    - name: Create summary
+      run: |
+        echo "## 🤖 AI Test Case Generation Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Provider:** ${{ github.event.inputs.llm_provider }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Format:** ${{ github.event.inputs.output_format }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Test Cases:** ${{ github.event.inputs.num_cases }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📥 Download Results" >> $GITHUB_STEP_SUMMARY
+        echo "Check the **Artifacts** section below to download your generated test cases!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📋 User Story" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "${{ github.event.inputs.user_story }}" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

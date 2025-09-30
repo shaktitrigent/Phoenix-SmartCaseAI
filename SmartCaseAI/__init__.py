@@ -36,15 +36,18 @@ from .generator import (
     TestCaseList,
     BDDScenarioList
 )
-from .file_analyzer import FileAnalyzer, FileAnalysisResult
+from .unified_file_analyzer import UnifiedFileAnalyzer, FileAnalysisResult
+# Provide backward compatibility alias
+FileAnalyzer = UnifiedFileAnalyzer
 
 # Public API - only expose what users need
 __all__ = [
     "StoryBDDGenerator",
     "TestCase", 
     "BDDScenario",
-    "FileAnalyzer",
+    "UnifiedFileAnalyzer",
     "FileAnalysisResult",
+    "FileAnalyzer",  # Legacy support
     "__version__",
     "__author__",
     "__email__"

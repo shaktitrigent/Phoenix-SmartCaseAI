@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<payment_portal_business_rules>
+    <metadata>
+        <version>2.0</version>
+        <last_updated>2024-09-29</last_updated>
+        <classification>business_critical</classification>
+    </metadata>
+    
+    <transaction_rules>
+        <amount_limits>
+            <minimum_amount currency="USD">5.00</minimum_amount>
+            <maximum_amount currency="USD">5000.00</maximum_amount>
+            <daily_limit currency="USD">10000.00</daily_limit>
+        </amount_limits>
+        
+        <retry_policies>
+            <payment_retries>
+                <max_attempts>3</max_attempts>
+                <retry_delay_seconds>30</retry_delay_seconds>
+                <exponential_backoff>true</exponential_backoff>
+            </payment_retries>
+            <fraud_check_retries>
+                <max_attempts>1</max_attempts>
+                <manual_review_threshold>500.00</manual_review_threshold>
+            </fraud_check_retries>
+        </retry_policies>
+        
+        <security_rules>
+            <session_timeout_minutes>15</session_timeout_minutes>
+            <failed_attempt_lockout>
+                <max_attempts>5</max_attempts>
+                <lockout_duration_hours>24</lockout_duration_hours>
+            </failed_attempt_lockout>
+            <required_authentication>
+                <three_d_secure>
+                    <threshold_amount>100.00</threshold_amount>
+                    <high_risk_countries>true</high_risk_countries>
+                </three_d_secure>
+            </required_authentication>
+        </security_rules>
+    </transaction_rules>
+    
+    <payment_methods>
+        <credit_cards>
+            <accepted_types>
+                <type name="visa" enabled="true" min_amount="5.00"/>
+                <type name="mastercard" enabled="true" min_amount="5.00"/>
+                <type name="amex" enabled="true" min_amount="10.00"/>
+                <type name="discover" enabled="false"/>
+            </accepted_types>
+            <validation_rules>
+                <luhn_check>true</luhn_check>
+                <cvv_required>true</cvv_required>
+                <expiry_validation>true</expiry_validation>
+            </validation_rules>
+        </credit_cards>
+        
+        <digital_wallets>
+            <paypal enabled="true" min_amount="1.00"/>
+            <apple_pay enabled="true" min_amount="1.00"/>
+            <google_pay enabled="true" min_amount="1.00"/>
+            <samsung_pay enabled="false"/>
+        </digital_wallets>
+    </payment_methods>
+    
+    <fraud_detection>
+        <risk_factors>
+            <velocity_checks>
+                <transactions_per_hour>10</transactions_per_hour>
+                <amount_per_hour>1000.00</amount_per_hour>
+            </velocity_checks>
+            <geolocation>
+                <country_restrictions>
+                    <blocked_countries>
+                        <country>XX</country>
+                        <country>YY</country>
+                    </blocked_countries>
+                </country_restrictions>
+                <distance_threshold_miles>500</distance_threshold_miles>
+            </geolocation>
+        </risk_factors>
+        
+        <scoring_thresholds>
+            <low_risk>0-30</low_risk>
+            <medium_risk>31-70</medium_risk>
+            <high_risk>71-100</high_risk>
+        </scoring_thresholds>
+    </fraud_detection>
+    
+    <integration_rules>
+        <inventory_check>
+            <real_time_validation>true</real_time_validation>
+            <reserve_timeout_minutes>10</reserve_timeout_minutes>
+        </inventory_check>
+        
+        <tax_calculation>
+            <service_provider>avalara</service_provider>
+            <fallback_rates>true</fallback_rates>
+        </tax_calculation>
+        
+        <shipping_integration>
+            <rate_calculation>real_time</rate_calculation>
+            <delivery_estimation>true</delivery_estimation>
+        </shipping_integration>
+    </integration_rules>
+</payment_portal_business_rules>
