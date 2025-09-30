@@ -1,0 +1,76 @@
+name: Quick Web Interface Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_type:
+        description: 'Deployment Type'
+        required: true
+        type: choice
+        options:
+          - github-pages
+          - download-only
+        default: 'download-only'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Prepare web interface files
+      run: |
+        mkdir -p web-interface-build
+        cp -r web-interface-simple/* web-interface-build/ 2>/dev/null || cp -r web-interface/* web-interface-build/
+        echo "Web interface files prepared"
+    
+    - name: Create deployment package
+      run: |
+        cd web-interface-build
+        echo "# AI Test Case Generator" > README.md
+        echo "" >> README.md
+        echo "## Quick Start" >> README.md
+        echo "1. Open \`index.html\` in your browser" >> README.md
+        echo "2. Or upload to any static hosting service" >> README.md
+        echo "" >> README.md
+        echo "## Hosting Options" >> README.md
+        echo "- **Netlify**: Drag & drop this folder" >> README.md
+        echo "- **Vercel**: Connect your GitHub repository" >> README.md
+        echo "- **GitHub Pages**: Upload to a repository" >> README.md
+        echo "- **Any Static Host**: Upload the files" >> README.md
+    
+    - name: Upload as artifact (Download Only)
+      if: ${{ github.event.inputs.deployment_type == 'download-only' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: web-interface-package
+        path: web-interface-build/
+        retention-days: 30
+    
+    - name: Deploy to GitHub Pages
+      if: ${{ github.event.inputs.deployment_type == 'github-pages' }}
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./web-interface-build
+    
+    - name: Show deployment info
+      run: |
+        echo "## 🚀 Web Interface Ready!"
+        echo ""
+        echo "### 📁 Files prepared in web-interface-build/"
+        echo ""
+        if [ "${{ github.event.inputs.deployment_type }}" == "download-only" ]; then
+          echo "### 📦 Download the 'web-interface-package' artifact to get the files"
+          echo "### 🌐 Upload to any static hosting service"
+        else
+          echo "### 🌐 GitHub Pages deployment initiated"
+          echo "### 📍 Your site will be available at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+        fi
+        echo ""
+        echo "### 🎯 Next Steps:"
+        echo "1. Download the artifact (if download-only)"
+        echo "2. Upload to your preferred hosting service"
+        echo "3. Share the link with your team"

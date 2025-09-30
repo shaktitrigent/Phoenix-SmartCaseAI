@@ -1,10 +1,34 @@
 # 🔧 GitHub Setup Guide
 
-## Fix GitHub Actions Permission Issues
+## ✅ FIXED: GitHub Actions Deprecated Actions Error
 
-The error you're seeing is due to GitHub Actions permissions. Here's how to fix it:
+The error you encountered was due to deprecated GitHub Actions. I've fixed all workflows to use the latest versions:
 
-### Option 1: Enable GitHub Pages (Recommended)
+### 🔧 **What I Fixed:**
+- ✅ Updated `actions/upload-artifact@v3` → `@v4`
+- ✅ Updated `peaceiris/actions-gh-pages@v3` → `@v4`
+- ✅ Created new `quick-deploy.yml` workflow (no deprecated actions)
+- ✅ All workflows now use current, supported action versions
+
+### 🚀 **Try These Fixed Workflows:**
+
+#### **Option 1: Quick Deploy (NEW - No Deprecated Actions)**
+1. **Go to Actions tab**
+2. **Select "Quick Web Interface Deploy"**
+3. **Click "Run workflow"**
+4. **Choose deployment type:**
+   - `download-only`: Get files as artifact
+   - `github-pages`: Deploy to GitHub Pages
+
+#### **Option 2: Manual Web Interface (FIXED)**
+1. **Go to Actions tab**
+2. **Select "Manual Web Interface"**
+3. **Click "Run workflow"**
+4. **Choose deployment method:**
+   - `github-pages`: Deploy to GitHub Pages
+   - `download-only`: Get files as artifact
+
+#### **Option 3: Enable GitHub Pages (Recommended)
 
 1. **Go to Repository Settings:**
    - Navigate to your repository on GitHub
