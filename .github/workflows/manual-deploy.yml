@@ -1,0 +1,85 @@
+name: Manual Web Interface
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_method:
+        description: 'Deployment Method'
+        required: true
+        type: choice
+        options:
+          - github-pages
+          - netlify
+          - vercel
+          - download-only
+        default: 'download-only'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Create deployment package
+      run: |
+        mkdir -p deployment
+        cp -r web-interface/* deployment/
+        echo "Web interface files prepared for deployment"
+    
+    - name: Upload as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: web-interface-files
+        path: deployment/
+        retention-days: 30
+    
+    - name: Deploy to GitHub Pages
+      if: ${{ github.event.inputs.deploy_method == 'github-pages' }}
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./deployment
+    
+    - name: Create deployment instructions
+      run: |
+        cat > deployment/README.md << 'EOF'
+        # Web Interface Deployment
+        
+        ## Option 1: GitHub Pages
+        1. Go to repository Settings → Pages
+        2. Source: "Deploy from a branch"
+        3. Branch: "gh-pages" (created by workflow)
+        
+        ## Option 2: Netlify
+        1. Go to https://netlify.com
+        2. Drag and drop this folder
+        3. Your site will be live instantly
+        
+        ## Option 3: Vercel
+        1. Go to https://vercel.com
+        2. Import this repository
+        3. Deploy automatically
+        
+        ## Option 4: Any Static Host
+        Upload the contents of this folder to any static hosting service.
+        EOF
+    
+    - name: Show deployment info
+      run: |
+        echo "## 🚀 Web Interface Ready for Deployment!"
+        echo ""
+        echo "### 📁 Files created in deployment/ folder"
+        echo "### 📦 Download the artifact to get the files"
+        echo ""
+        echo "### 🌐 Deployment Options:"
+        echo "1. **GitHub Pages**: Files are ready, just enable Pages in settings"
+        echo "2. **Netlify**: Drag & drop the deployment folder"
+        echo "3. **Vercel**: Connect your GitHub repository"
+        echo "4. **Any Static Host**: Upload the files"
+        echo ""
+        echo "### 📋 Next Steps:"
+        echo "1. Download the 'web-interface-files' artifact"
+        echo "2. Extract the files"
+        echo "3. Upload to your preferred hosting service"
