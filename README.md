@@ -6,6 +6,12 @@ Phoenix-SmartCaseAI is an intelligent test case generator that leverages Large L
 
 ## 🚀 Quick Start
 
+### Prerequisites
+1. **Set up API Keys** (Required):
+   - See `API_KEYS_SETUP.md` for detailed instructions
+   - Set environment variables: `OPENAI_API_KEY`, `GEMINI_API_KEY`, `CLAUDE_API_KEY`
+   - At minimum, you need one API key for the provider you want to use
+
 ### Option 1: Web Interface (Recommended)
 1. **Start the API server:**
    ```bash
