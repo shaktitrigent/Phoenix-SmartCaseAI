@@ -6,6 +6,9 @@ from datetime import datetime
 from pathlib import Path
 import tempfile
 import shutil
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from SmartCaseAI.generator import StoryBDDGenerator
 
 app = Flask(__name__)

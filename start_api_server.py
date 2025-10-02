@@ -14,8 +14,8 @@ def check_environment():
     
     keys = {
         'OPENAI_API_KEY': os.getenv('OPENAI_API_KEY'),
-        'GOOGLE_API_KEY': os.getenv('GOOGLE_API_KEY'), 
-        'ANTHROPIC_API_KEY': os.getenv('ANTHROPIC_API_KEY')
+        'GEMINI_API_KEY': os.getenv('GEMINI_API_KEY'), 
+        'CLAUDE_API_KEY': os.getenv('CLAUDE_API_KEY')
     }
     
     has_keys = False
