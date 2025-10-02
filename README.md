@@ -4,8 +4,19 @@
 
 Phoenix-SmartCaseAI is an intelligent test case generator that leverages Large Language Models (LLMs) to automatically create comprehensive test cases from user stories. Generate both plain English test cases and BDD/Gherkin scenarios with proper JSON schema validation and export to markdown files.
 
-## Quick Start - Payment Portal Examples
+## 🚀 Quick Start
 
+### Option 1: Web Interface (Recommended)
+1. **Start the API server:**
+   ```bash
+   python start_api_server.py
+   ```
+
+2. **Open the web interface:**
+   - **Two-panel interface**: `web-interface-two-panel/index.html` (Recommended - Input panel + Output panel)
+   - **Single-page interface**: `web-interface-working/index.html` (Alternative - All-in-one)
+
+### Option 2: Command Line Examples
 Ready-to-run examples focusing on a comprehensive Payment Portal user story:
 
 ```bash

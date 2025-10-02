@@ -181,11 +181,25 @@ class StoryBDDGenerator:
             You are an expert QA engineer skilled in BDD. From the user story and additional context: "{story}"
             
             Generate 5-10 BDD scenarios in Gherkin format, covering positive, negative, edge, and boundary cases.
-            Include prerequisites in 'Given', actions in 'When', expectations in 'Then'.
+            
+            CRITICAL: Each scenario MUST include:
+            - 'given': List of preconditions (at least 1-2 steps)
+            - 'when': List of actions (at least 1-2 steps) 
+            - 'then': List of expected outcomes (at least 1-2 steps)
+            
+            Example format:
+            {{
+                "feature": "User Login",
+                "scenario": "User logs in with valid credentials",
+                "given": ["the user is on the login page", "the user has valid credentials"],
+                "when": ["the user enters their username", "the user enters their password", "the user clicks the login button"],
+                "then": ["the system should authenticate the user", "the user should be redirected to the dashboard", "the user should see a welcome message"]
+            }}
             
             Use the additional context from files (if provided) to understand requirements better and create more accurate scenarios.
             
             IMPORTANT: Return ONLY a JSON array of scenarios, not an object with an "items" key.
+            Each scenario MUST have non-empty given, when, and then arrays.
             
             {format_instructions}
             """
@@ -205,9 +219,34 @@ class StoryBDDGenerator:
             # Parse the response
             response_content = raw_response.content if hasattr(raw_response, 'content') else str(raw_response)
             
+            # Debug: Print raw response for BDD to help troubleshoot
+            if output_format.lower() == "bdd":
+                print(f"DEBUG - Raw BDD response from {provider_name}:")
+                print(response_content[:500] + "..." if len(response_content) > 500 else response_content)
+                print("=" * 50)
+            
             # Try to parse with the parser
             try:
-                return parser.parse(response_content)
+                result = parser.parse(response_content)
+                
+                # Additional validation for BDD scenarios
+                if output_format.lower() == "bdd" and hasattr(result, 'root'):
+                    for i, scenario in enumerate(result.root):
+                        if not scenario.given or not scenario.when or not scenario.then:
+                            print(f"WARNING: Scenario {i+1} has empty steps, adding fallback steps:")
+                            print(f"  Given: {scenario.given}")
+                            print(f"  When: {scenario.when}")
+                            print(f"  Then: {scenario.then}")
+                            
+                            # Add fallback steps if they're empty
+                            if not scenario.given:
+                                scenario.given = ["the user is on the application", "the user has access to the system"]
+                            if not scenario.when:
+                                scenario.when = ["the user performs the action", "the user submits the form"]
+                            if not scenario.then:
+                                scenario.then = ["the system should process the request", "the user should see the expected result"]
+                
+                return result
             except Exception as parse_error:
                 # Fallback: Try to handle the case where LLM returns {"items": [...]}
                 try:

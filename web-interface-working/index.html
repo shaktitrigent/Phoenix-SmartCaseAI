@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Test Case Generator - Working Version</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            border-bottom: 3px solid #f97316;
+            width: 100%;
+        }
+        
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 0.9em;
+            margin: 0;
+        }
+        
+        .orange-separator {
+            height: 2px;
+            background: #f97316;
+            width: 100%;
+        }
+        
+        .form-container {
+            padding: 40px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        textarea {
+            height: 200px;
+            resize: vertical;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+        
+        .user-story-container {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .user-story-container label {
+            font-size: 18px;
+            color: #495057;
+            margin-bottom: 15px;
+        }
+        
+        .user-story-container textarea {
+            height: 250px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        
+        .file-upload {
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .file-upload:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+        
+        .file-upload.dragover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .file-list {
+            margin-top: 15px;
+        }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: #f7fafc;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        
+        .file-item .name {
+            flex: 1;
+            font-weight: 500;
+        }
+        
+        .file-item .size {
+            color: #718096;
+            font-size: 0.9em;
+        }
+        
+        .remove-file {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            color: white;
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            width: 100%;
+            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+            margin-top: 10px;
+        }
+        
+        .button:hover {
+            background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(249, 115, 22, 0.4);
+        }
+        
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .results {
+            margin-top: 30px;
+            padding: 25px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 4px solid #48bb78;
+        }
+        
+        .error {
+            background: #fed7d7;
+            border-left-color: #e53e3e;
+            color: #c53030;
+        }
+        
+        .success h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+        
+        .download-links {
+            margin: 20px 0;
+        }
+        
+        .download-links a {
+            display: inline-block;
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: background 0.3s ease;
+        }
+        
+        .download-links a:hover {
+            background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
+        }
+        
+        .preview {
+            background: white;
+            padding: 20px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            max-height: 500px;
+            overflow-y: auto;
+            overflow-x: auto;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .output-window {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        
+        .output-header {
+            background: #e9ecef;
+            padding: 15px 20px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .output-title {
+            font-weight: 600;
+            color: #495057;
+            margin: 0;
+        }
+        
+        .output-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .copy-btn {
+            background: #1e40af;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+        
+        .copy-btn:hover {
+            background: #1d4ed8;
+        }
+        
+        .copy-btn:active {
+            background: #1e3a8a;
+        }
+        
+        .copy-btn.copied {
+            background: #6c757d;
+        }
+        
+        .output-content {
+            max-height: 600px;
+            overflow-y: auto;
+            overflow-x: auto;
+            padding: 15px;
+            background: white;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.1;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .output-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .output-tab {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            color: #6c757d;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .output-tab.active {
+            color: #495057;
+            border-bottom-color: #007bff;
+            background: white;
+        }
+        
+        .output-tab:hover {
+            color: #495057;
+            background: #f8f9fa;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        /* Better formatting for generated content */
+        .output-content h1, .output-content h2, .output-content h3 {
+            margin: 8px 0 4px 0;
+            line-height: 1.1;
+        }
+        
+        .output-content p {
+            margin: 3px 0;
+            line-height: 1.1;
+        }
+        
+        .output-content ul, .output-content ol {
+            margin: 4px 0;
+            padding-left: 20px;
+        }
+        
+        .output-content li {
+            margin: 2px 0;
+            line-height: 1.1;
+        }
+        
+        .output-content code {
+            background: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .output-content pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        
+        /* Extra tight spacing for acceptance criteria sections */
+        .output-content * {
+            margin-top: 1px !important;
+            margin-bottom: 1px !important;
+        }
+        
+        .output-content h1, .output-content h2, .output-content h3 {
+            margin-top: 6px !important;
+            margin-bottom: 2px !important;
+        }
+        
+        .output-content p {
+            margin-top: 1px !important;
+            margin-bottom: 1px !important;
+        }
+        
+        .output-content li {
+            margin-top: 0px !important;
+            margin-bottom: 0px !important;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 10px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+        
+        .status.info {
+            background: #e6f3ff;
+            color: #0066cc;
+            border: 1px solid #b3d9ff;
+        }
+        
+        .status.success {
+            background: #e6ffe6;
+            color: #006600;
+            border: 1px solid #b3ffb3;
+        }
+        
+        .status.error {
+            background: #ffe6e6;
+            color: #cc0000;
+            border: 1px solid #ffb3b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Test Case Generator</h1>
+            <p>Generate comprehensive test cases from user stories using advanced AI</p>
+        </div>
+        
+        <div class="orange-separator"></div>
+        
+        <div class="form-container">
+            <div id="status" class="status info">
+                <strong>📡 API Status:</strong> <span id="apiStatus">Checking connection...</span>
+            </div>
+            
+            <form id="testForm">
+                <div class="user-story-container">
+                    <label for="user_story">📝 User Story / Requirements:</label>
+                    <textarea 
+                        id="user_story" 
+                        name="user_story" 
+                        placeholder="As a user, I want to securely process my payment through a comprehensive payment portal, so that I can complete my purchase quickly and safely with multiple payment options.
+
+Example:
+- As a customer, I want to be able to pay with multiple payment methods (credit card, PayPal, Apple Pay) so that I can choose my preferred payment option.
+- As a merchant, I want to receive payment confirmations and transaction details so that I can track my sales.
+- As a system administrator, I want to monitor payment processing in real-time so that I can ensure system reliability."
+                        required
+                        onfocus="this.placeholder=''"
+                        onblur="if(this.value===''){this.placeholder='As a user, I want to securely process my payment through a comprehensive payment portal, so that I can complete my purchase quickly and safely with multiple payment options.\n\nExample:\n- As a customer, I want to be able to pay with multiple payment methods (credit card, PayPal, Apple Pay) so that I can choose my preferred payment option.\n- As a merchant, I want to receive payment confirmations and transaction details so that I can track my sales.\n- As a system administrator, I want to monitor payment processing in real-time so that I can ensure system reliability.';}"
+                    ></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="llm_provider">AI Provider:</label>
+                    <select id="llm_provider" name="llm_provider">
+                        <option value="openai" selected>OpenAI</option>
+                        <option value="gemini">Google Gemini</option>
+                        <option value="claude">Anthropic Claude</option>
+                        <option value="all">All Providers (Best Results)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="output_format">Output Format:</label>
+                    <select id="output_format" name="output_format">
+                        <option value="plain">Plain English</option>
+                        <option value="bdd">BDD/Gherkin</option>
+                        <option value="both" selected>Both Formats</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="num_cases">Number of Test Cases:</label>
+                    <input 
+                        type="number" 
+                        id="num_cases" 
+                        name="num_cases" 
+                        value="10" 
+                        min="1" 
+                        max="50"
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label>Supporting Files (Optional):</label>
+                    <div class="file-upload" id="fileUpload">
+                        <p>📁 Drag & drop files here or click to select</p>
+                        <p style="color: #718096; font-size: 0.9em;">
+                            Supported: .txt, .pdf, .docx, .json, .csv, .xml, .png, .jpg, .jpeg, .webp
+                        </p>
+                        <input 
+                            type="file" 
+                            id="files" 
+                            name="files" 
+                            multiple 
+                            accept=".txt,.pdf,.docx,.json,.csv,.xml,.png,.jpg,.jpeg,.webp" 
+                            style="display: none;"
+                        >
+                    </div>
+                    <div id="fileList" class="file-list"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email for Results (Optional):</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        placeholder="your@email.com"
+                    >
+                </div>
+                
+                <button type="submit" class="button" id="submitBtn">
+                    🚀 Generate Test Cases
+                </button>
+            </form>
+            
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000';
+        const fileUpload = document.getElementById('fileUpload');
+        const fileInput = document.getElementById('files');
+        const fileList = document.getElementById('fileList');
+        const form = document.getElementById('testForm');
+        const results = document.getElementById('results');
+        const submitBtn = document.getElementById('submitBtn');
+        const apiStatus = document.getElementById('apiStatus');
+        const statusDiv = document.getElementById('status');
+        
+        // Check API connection on page load
+        checkApiConnection();
+        
+        async function checkApiConnection() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/`);
+                if (response.ok) {
+                    apiStatus.textContent = 'Connected ✅';
+                    statusDiv.className = 'status success';
+                } else {
+                    throw new Error('API not responding');
+                }
+            } catch (error) {
+                apiStatus.textContent = 'Not connected ❌ - Please start the API server';
+                statusDiv.className = 'status error';
+                statusDiv.innerHTML = `
+                    <strong>⚠️ API Server Not Running</strong><br>
+                    To use this interface, you need to start the API server:<br>
+                    <code>cd api-server && python app.py</code><br>
+                    <small>Or use the GitHub Actions workflow for cloud processing</small>
+                `;
+            }
+        }
+        
+        // File upload handling
+        fileUpload.addEventListener('click', () => fileInput.click());
+        
+        fileUpload.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUpload.classList.add('dragover');
+        });
+        
+        fileUpload.addEventListener('dragleave', () => {
+            fileUpload.classList.remove('dragover');
+        });
+        
+        fileUpload.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUpload.classList.remove('dragover');
+            fileInput.files = e.dataTransfer.files;
+            updateFileList();
+        });
+        
+        fileInput.addEventListener('change', updateFileList);
+        
+        function updateFileList() {
+            fileList.innerHTML = '';
+            Array.from(fileInput.files).forEach((file, index) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.innerHTML = `
+                    <span class="name">📄 ${file.name}</span>
+                    <span class="size">(${(file.size/1024).toFixed(1)}KB)</span>
+                    <button type="button" class="remove-file" onclick="removeFile(${index})">×</button>
+                `;
+                fileList.appendChild(div);
+            });
+        }
+        
+        function removeFile(index) {
+            const dt = new DataTransfer();
+            Array.from(fileInput.files).forEach((file, i) => {
+                if (i !== index) dt.items.add(file);
+            });
+            fileInput.files = dt.files;
+            updateFileList();
+        }
+        
+        // Form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            
+            // Show loading state
+            results.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>⏳ Generating test cases using AI...</p>
+                    <p>This may take 1-3 minutes depending on the complexity and provider.</p>
+                </div>
+            `;
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Generating...';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/generate`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                displayResults(data);
+                
+            } catch (error) {
+                displayError('Failed to generate test cases: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Generate Test Cases';
+            }
+        });
+        
+        function displayResults(data) {
+            const plainContent = data.test_cases_markdown || 'No content generated';
+            const bddContent = data.bdd_content || 'No BDD content generated';
+            
+            results.innerHTML = `
+                <div class="results success">
+                    <h3>✅ Test Cases Generated Successfully!</h3>
+                    <p><strong>Provider:</strong> ${data.provider}</p>
+                    <p><strong>Test Cases:</strong> ${data.num_generated_cases}</p>
+                    <p><strong>Format:</strong> ${data.output_format}</p>
+                    <p><strong>Generation Time:</strong> ${data.generation_time || 'N/A'}s</p>
+                    
+                    <div class="download-links">
+                        <a href="#" onclick="downloadContent('test_cases_plain.md', \`${escapeHtml(plainContent)}\`)">📄 Plain English Format</a>
+                        <a href="#" onclick="downloadContent('test_cases_bdd.md', \`${escapeHtml(bddContent)}\`)">📋 BDD/Gherkin Format</a>
+                        <a href="#" onclick="downloadZip()">📦 Download All (ZIP)</a>
+                    </div>
+                    
+                    <div class="output-window">
+                        <div class="output-header">
+                            <h4 class="output-title">📋 Generated Test Cases</h4>
+                            <div class="output-actions">
+                                <button class="copy-btn" onclick="copyToClipboard('plain')" id="copyPlainBtn">📋 Copy Plain</button>
+                                ${data.output_format === 'both' || data.output_format === 'bdd' ? 
+                                    `<button class="copy-btn" onclick="copyToClipboard('bdd')" id="copyBddBtn">📋 Copy BDD</button>` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="output-tabs">
+                            <button class="output-tab active" onclick="switchTab('plain')" id="plainTab">📄 Plain English</button>
+                            ${data.output_format === 'both' || data.output_format === 'bdd' ? 
+                                `<button class="output-tab" onclick="switchTab('bdd')" id="bddTab">📋 BDD/Gherkin</button>` : ''}
+                        </div>
+                        
+                        <div class="tab-content active" id="plainContent">
+                            <div class="output-content">${escapeHtml(plainContent)}</div>
+                        </div>
+                        
+                        ${data.output_format === 'both' || data.output_format === 'bdd' ? `
+                        <div class="tab-content" id="bddContent">
+                            <div class="output-content">${escapeHtml(bddContent)}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            
+            // Store content for copying
+            window.currentPlainContent = plainContent;
+            window.currentBddContent = bddContent;
+        }
+        
+        function formatPreview(content) {
+            if (!content) return 'No preview available';
+            
+            // Limit preview to first 2000 characters
+            const preview = content.length > 2000 ? content.substring(0, 2000) + '...' : content;
+            
+            // Convert markdown-like formatting to HTML
+            return preview
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+                .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+                .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+                .replace(/^\- (.*$)/gm, '<li>$1</li>')
+                .replace(/^\d+\. (.*$)/gm, '<li>$1</li>')
+                .replace(/\n/g, '<br>');
+        }
+        
+        function displayError(message) {
+            results.innerHTML = `
+                <div class="results error">
+                    <h3>❌ Error</h3>
+                    <p>${message}</p>
+                    <p><strong>Possible solutions:</strong></p>
+                    <ul>
+                        <li>Make sure the API server is running: <code>cd api-server && python app.py</code></li>
+                        <li>Check that your API keys are set in the environment</li>
+                        <li>Try using the GitHub Actions workflow instead</li>
+                    </ul>
+                </div>
+            `;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function downloadContent(filename, content) {
+            const blob = new Blob([content], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        function downloadZip() {
+            alert('ZIP download would be implemented with the actual API response');
+        }
+        
+        function switchTab(tabName) {
+            // Remove active class from all tabs and content
+            document.querySelectorAll('.output-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Add active class to selected tab and content
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            document.getElementById(tabName + 'Content').classList.add('active');
+        }
+        
+        function copyToClipboard(type) {
+            const content = type === 'plain' ? window.currentPlainContent : window.currentBddContent;
+            const buttonId = type === 'plain' ? 'copyPlainBtn' : 'copyBddBtn';
+            const button = document.getElementById(buttonId);
+            
+            if (!content || content === 'No content generated') {
+                alert('No content to copy');
+                return;
+            }
+            
+            // Create a temporary textarea element
+            const textarea = document.createElement('textarea');
+            textarea.value = content;
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-999999px';
+            textarea.style.top = '-999999px';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            
+            try {
+                // Copy the text
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    // Update button to show copied state
+                    const originalText = button.textContent;
+                    button.textContent = '✅ Copied!';
+                    button.classList.add('copied');
+                    
+                    // Reset button after 2 seconds
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.classList.remove('copied');
+                    }, 2000);
+                } else {
+                    throw new Error('Copy command failed');
+                }
+            } catch (err) {
+                // Fallback for modern browsers
+                navigator.clipboard.writeText(content).then(() => {
+                    const originalText = button.textContent;
+                    button.textContent = '✅ Copied!';
+                    button.classList.add('copied');
+                    
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.classList.remove('copied');
+                    }, 2000);
+                }).catch(() => {
+                    alert('Failed to copy to clipboard. Please select and copy manually.');
+                });
+            } finally {
+                // Clean up
+                document.body.removeChild(textarea);
+            }
+        }
+    </script>
+</body>
+</html>

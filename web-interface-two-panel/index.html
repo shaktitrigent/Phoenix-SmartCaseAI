@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartCaseAI Test Case Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(30, 58, 138, 0.15);
+            border-bottom: 3px solid #f97316;
+            width: 100%;
+        }
+        
+        .header h1 {
+            font-size: 1.5em;
+            margin-bottom: 3px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 0.8em;
+            margin: 0;
+        }
+        
+        .orange-separator {
+            height: 2px;
+            background: #f97316;
+            width: 100%;
+        }
+        
+        .main-container {
+            display: flex;
+            height: calc(100vh - 100px);
+        }
+        
+        .input-panel {
+            width: 40%;
+            background: #ffffff;
+            border-right: 2px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+        }
+        
+        .output-panel {
+            width: 60%;
+            background: #f1f5f9;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .panel-header {
+            background: #e9ecef;
+            padding: 15px 20px;
+            border-bottom: 1px solid #dee2e6;
+            font-weight: 600;
+            color: #495057;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .panel-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        textarea {
+            height: 200px;
+            resize: vertical;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+        
+        .file-upload {
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: #fafbfc;
+        }
+        
+        .file-upload:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+        
+        .file-upload.dragover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .file-list {
+            margin-top: 15px;
+        }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: #f7fafc;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .file-item .name {
+            flex: 1;
+            font-weight: 500;
+            color: #2d3748;
+        }
+        
+        .file-item .size {
+            color: #718096;
+            font-size: 0.9em;
+            margin-right: 10px;
+        }
+        
+        .remove-file {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .remove-file:hover {
+            background: #c53030;
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            width: 100%;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .output-content {
+            flex: 1;
+            background: white;
+            margin: 20px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .output-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .output-title {
+            font-weight: 600;
+            color: #495057;
+            margin: 0;
+        }
+        
+        .output-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .action-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+        
+        .action-btn:hover {
+            background: #218838;
+        }
+        
+        .action-btn.secondary {
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        }
+        
+        .action-btn.secondary:hover {
+            background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
+        }
+        
+        .action-btn.copied {
+            background: #17a2b8;
+        }
+        
+        .output-tabs {
+            display: flex;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 2px solid #dee2e6;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .output-tab {
+            padding: 15px 25px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            color: #6c757d;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            position: relative;
+            min-width: 120px;
+            text-align: center;
+        }
+        
+        .output-tab.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+            background: white;
+            box-shadow: 0 -2px 8px rgba(0,123,255,0.1);
+        }
+        
+        .output-tab:hover:not(.active) {
+            color: #495057;
+            background: rgba(0,123,255,0.05);
+        }
+        
+        .output-tab.hidden {
+            display: none;
+        }
+        
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: auto;
+            padding: 15px;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.1;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background: white;
+            border-radius: 0 0 8px 8px;
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block !important;
+        }
+        
+        /* Better formatting for generated content */
+        .tab-content h1, .tab-content h2, .tab-content h3 {
+            margin: 8px 0 4px 0;
+            line-height: 1.1;
+        }
+        
+        .tab-content p {
+            margin: 3px 0;
+            line-height: 1.1;
+        }
+        
+        .tab-content ul, .tab-content ol {
+            margin: 4px 0;
+            padding-left: 20px;
+        }
+        
+        .tab-content li {
+            margin: 2px 0;
+            line-height: 1.1;
+        }
+        
+        .tab-content code {
+            background: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .tab-content pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        
+        /* Extra tight spacing for acceptance criteria sections */
+        .tab-content * {
+            margin-top: 1px !important;
+            margin-bottom: 1px !important;
+        }
+        
+        .tab-content h1, .tab-content h2, .tab-content h3 {
+            margin-top: 6px !important;
+            margin-bottom: 2px !important;
+        }
+        
+        .tab-content p {
+            margin-top: 1px !important;
+            margin-bottom: 1px !important;
+        }
+        
+        .tab-content li {
+            margin-top: 0px !important;
+            margin-bottom: 0px !important;
+        }
+        
+        .reset-btn {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin-left: 10px;
+        }
+        
+        .reset-btn:hover {
+            background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(220,53,69,0.3);
+        }
+        
+        .reset-btn:active {
+            transform: translateY(0);
+        }
+        
+        .form-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .form-controls-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .form-controls-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-indicator.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-indicator.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .enhanced-button {
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .enhanced-button:hover {
+            background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(249, 115, 22, 0.4);
+        }
+        
+        .enhanced-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .panel-header-enhanced {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 20px 25px;
+            border-bottom: 2px solid #f97316;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(30, 58, 138, 0.2);
+        }
+        
+        .panel-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .panel-subtitle {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+        
+        .status {
+            padding: 10px 20px;
+            margin: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .status.info {
+            background: #e6f3ff;
+            color: #0066cc;
+            border: 1px solid #b3d9ff;
+        }
+        
+        .status.success {
+            background: #e6ffe6;
+            color: #006600;
+            border: 1px solid #b3ffb3;
+        }
+        
+        .status.error {
+            background: #ffe6e6;
+            color: #cc0000;
+            border: 1px solid #ffb3b3;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+        
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: #495057;
+        }
+        
+        .empty-state p {
+            margin-bottom: 20px;
+        }
+        
+        .resize-handle {
+            width: 4px;
+            background: #e1e5e9;
+            cursor: col-resize;
+            transition: background 0.3s ease;
+        }
+        
+        .resize-handle:hover {
+            background: #667eea;
+        }
+        
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .input-panel, .output-panel {
+                width: 100%;
+            }
+            
+            .input-panel {
+                height: 50vh;
+            }
+            
+            .output-panel {
+                height: 50vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>SmartCaseAI Test Case Generator</h1>
+        <p>Automated test case generation for faster, smarter QA.</p>
+    </div>
+    
+    <div class="orange-separator"></div>
+    
+    <div class="main-container">
+        <!-- INPUT PANEL -->
+        <div class="input-panel">
+            <div class="panel-header-enhanced">
+                <div>
+                    <div class="panel-title">📝 Input Panel</div>
+                    <div class="panel-subtitle">Enter your user story and configure test generation</div>
+                </div>
+                <div class="status-indicator" id="apiStatusIndicator">
+                    <span id="apiStatus">Checking API...</span>
+                </div>
+            </div>
+            
+            <div class="panel-content">
+                <div class="form-controls">
+                    <div class="form-controls-left">
+                        <label for="output_format" style="margin: 0; font-weight: 600;">Output Format:</label>
+                        <select id="output_format" name="output_format" style="width: auto; margin: 0;">
+                            <option value="plain">Plain English</option>
+                            <option value="bdd">BDD/Gherkin</option>
+                            <option value="both" selected>Both Formats</option>
+                        </select>
+                    </div>
+                    <div class="form-controls-right">
+                        <button type="button" class="reset-btn" onclick="resetForm()">🔄 Reset</button>
+                    </div>
+                </div>
+                
+                <form id="testForm">
+                    <div class="form-group">
+                        <label for="user_story">User Story / Requirements:</label>
+                        <textarea 
+                            id="user_story" 
+                            name="user_story" 
+                            placeholder="As a user, I want to securely process my payment through a comprehensive payment portal, so that I can complete my purchase quickly and safely with multiple payment options.
+
+Example:
+- As a customer, I want to be able to pay with multiple payment methods (credit card, PayPal, Apple Pay) so that I can choose my preferred payment option.
+- As a merchant, I want to receive payment confirmations and transaction details so that I can track my sales.
+- As a system administrator, I want to monitor payment processing in real-time so that I can ensure system reliability."
+                            required
+                            onfocus="this.placeholder=''"
+                            onblur="if(this.value===''){this.placeholder='As a user, I want to securely process my payment through a comprehensive payment portal, so that I can complete my purchase quickly and safely with multiple payment options.\n\nExample:\n- As a customer, I want to be able to pay with multiple payment methods (credit card, PayPal, Apple Pay) so that I can choose my preferred payment option.\n- As a merchant, I want to receive payment confirmations and transaction details so that I can track my sales.\n- As a system administrator, I want to monitor payment processing in real-time so that I can ensure system reliability.';}"
+                        ></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="llm_provider">AI Provider:</label>
+                        <select id="llm_provider" name="llm_provider">
+                            <option value="openai" selected>OpenAI</option>
+                            <option value="gemini">Google Gemini</option>
+                            <option value="claude">Anthropic Claude</option>
+                            <option value="all">All Providers (Best Results)</option>
+                        </select>
+                    </div>
+                    
+                    
+                    <div class="form-group">
+                        <label for="num_cases">Number of Test Cases:</label>
+                        <input 
+                            type="number" 
+                            id="num_cases" 
+                            name="num_cases" 
+                            value="10" 
+                            min="1" 
+                            max="50"
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Supporting Files (Optional):</label>
+                        <div class="file-upload" id="fileUpload">
+                            <p>📁 Drag & drop files here or click to select</p>
+                            <p style="color: #718096; font-size: 0.9em; margin-top: 5px;">
+                                Supported: .txt, .pdf, .docx, .json, .csv, .xml, .png, .jpg, .jpeg, .webp
+                            </p>
+                            <input 
+                                type="file" 
+                                id="files" 
+                                name="files" 
+                                multiple 
+                                accept=".txt,.pdf,.docx,.json,.csv,.xml,.png,.jpg,.jpeg,.webp" 
+                                style="display: none;"
+                            >
+                        </div>
+                        <div id="fileList" class="file-list"></div>
+                    </div>
+                    
+                    <button type="submit" class="enhanced-button" id="submitBtn">
+                        🚀 Generate Test Cases
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- RESIZE HANDLE -->
+        <div class="resize-handle" id="resizeHandle"></div>
+        
+        <!-- OUTPUT PANEL -->
+        <div class="output-panel">
+            <div class="panel-header-enhanced">
+                <div>
+                    <div class="panel-title">📋 Output Panel</div>
+                    <div class="panel-subtitle">Generated test cases will appear here</div>
+                </div>
+                <div class="output-actions">
+                    <button class="action-btn" id="copyBtn" onclick="copyToClipboard()" disabled>📋 Copy</button>
+                    <button class="action-btn secondary" id="exportBtn" onclick="exportContent()" disabled>📤 Export</button>
+                </div>
+            </div>
+            
+            <div class="output-content" id="outputContent">
+                <div class="empty-state">
+                    <h3>Ready to Generate Test Cases</h3>
+                    <p>Fill in the user story and click "Generate Test Cases" to see results here.</p>
+                    <p>You can upload supporting files to enhance the test case generation.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000';
+        const fileUpload = document.getElementById('fileUpload');
+        const fileInput = document.getElementById('files');
+        const fileList = document.getElementById('fileList');
+        const form = document.getElementById('testForm');
+        const outputContent = document.getElementById('outputContent');
+        const submitBtn = document.getElementById('submitBtn');
+        const apiStatus = document.getElementById('apiStatus');
+        const apiStatusIndicator = document.getElementById('apiStatusIndicator');
+        const copyBtn = document.getElementById('copyBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        
+        // Store current content
+        let currentPlainContent = '';
+        let currentBddContent = '';
+        let currentFormat = 'plain';
+        
+        // Check API connection on page load
+        checkApiConnection();
+        
+        async function checkApiConnection() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/`);
+                if (response.ok) {
+                    apiStatus.textContent = 'API Connected ✅';
+                    apiStatusIndicator.className = 'status-indicator connected';
+                } else {
+                    throw new Error('API not responding');
+                }
+            } catch (error) {
+                apiStatus.textContent = 'API Disconnected ❌';
+                apiStatusIndicator.className = 'status-indicator disconnected';
+            }
+        }
+        
+        // Reset form functionality
+        function resetForm() {
+            // Clear form fields
+            document.getElementById('user_story').value = '';
+            document.getElementById('llm_provider').value = 'gemini';
+            document.getElementById('output_format').value = 'both';
+            document.getElementById('num_cases').value = '10';
+            document.getElementById('email').value = '';
+            
+            // Clear file uploads
+            document.getElementById('files').value = '';
+            updateFileList();
+            
+            // Clear output panel
+            outputContent.innerHTML = `
+                <div class="empty-state">
+                    <h3>Ready to Generate Test Cases</h3>
+                    <p>Fill in the user story and click "Generate Test Cases" to see results here.</p>
+                    <p>You can upload supporting files to enhance the test case generation.</p>
+                </div>
+            `;
+            
+            // Disable action buttons
+            copyBtn.disabled = true;
+            exportBtn.disabled = true;
+            
+            // Reset current content
+            currentPlainContent = '';
+            currentBddContent = '';
+            currentFormat = 'plain';
+            
+            // Update tab visibility based on output format
+            updateTabVisibility();
+        }
+        
+        // Update tab visibility based on output format
+        function updateTabVisibility() {
+            const outputFormat = document.getElementById('output_format').value;
+            const plainTab = document.getElementById('plainTab');
+            const bddTab = document.getElementById('bddTab');
+            const plainContent = document.getElementById('plainContent');
+            const bddContent = document.getElementById('bddContent');
+            
+            if (outputFormat === 'plain') {
+                // Show only Plain English tab and content
+                if (plainTab) {
+                    plainTab.classList.remove('hidden');
+                    plainTab.classList.add('active');
+                }
+                if (bddTab) {
+                    bddTab.classList.add('hidden');
+                    bddTab.classList.remove('active');
+                }
+                if (plainContent) {
+                    plainContent.classList.remove('hidden');
+                    plainContent.classList.add('active');
+                    plainContent.style.display = 'block';
+                }
+                if (bddContent) {
+                    bddContent.classList.add('hidden');
+                    bddContent.classList.remove('active');
+                    bddContent.style.display = 'none';
+                }
+            } else if (outputFormat === 'bdd') {
+                // Show only BDD tab and content
+                if (plainTab) {
+                    plainTab.classList.add('hidden');
+                    plainTab.classList.remove('active');
+                }
+                if (bddTab) {
+                    bddTab.classList.remove('hidden');
+                    bddTab.classList.add('active');
+                }
+                if (plainContent) {
+                    plainContent.classList.add('hidden');
+                    plainContent.classList.remove('active');
+                    plainContent.style.display = 'none';
+                }
+                if (bddContent) {
+                    bddContent.classList.remove('hidden');
+                    bddContent.classList.add('active');
+                    bddContent.style.display = 'block';
+                }
+            } else { // both
+                // Show both tabs, Plain English active by default
+                if (plainTab) {
+                    plainTab.classList.remove('hidden');
+                    plainTab.classList.add('active');
+                }
+                if (bddTab) {
+                    bddTab.classList.remove('hidden');
+                    bddTab.classList.remove('active');
+                }
+                if (plainContent) {
+                    plainContent.classList.remove('hidden');
+                    plainContent.classList.add('active');
+                    plainContent.style.display = 'block';
+                }
+                if (bddContent) {
+                    bddContent.classList.remove('hidden');
+                    bddContent.classList.remove('active');
+                    bddContent.style.display = 'none';
+                }
+            }
+        }
+        
+        // Add event listener for output format change
+        document.getElementById('output_format').addEventListener('change', updateTabVisibility);
+        
+        // File upload handling
+        fileUpload.addEventListener('click', () => fileInput.click());
+        
+        fileUpload.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUpload.classList.add('dragover');
+        });
+        
+        fileUpload.addEventListener('dragleave', () => {
+            fileUpload.classList.remove('dragover');
+        });
+        
+        fileUpload.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUpload.classList.remove('dragover');
+            fileInput.files = e.dataTransfer.files;
+            updateFileList();
+        });
+        
+        fileInput.addEventListener('change', updateFileList);
+        
+        function updateFileList() {
+            fileList.innerHTML = '';
+            Array.from(fileInput.files).forEach((file, index) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.innerHTML = `
+                    <span class="name">📄 ${file.name}</span>
+                    <span class="size">(${(file.size/1024).toFixed(1)}KB)</span>
+                    <button type="button" class="remove-file" onclick="removeFile(${index})">×</button>
+                `;
+                fileList.appendChild(div);
+            });
+        }
+        
+        function removeFile(index) {
+            const dt = new DataTransfer();
+            Array.from(fileInput.files).forEach((file, i) => {
+                if (i !== index) dt.items.add(file);
+            });
+            fileInput.files = dt.files;
+            updateFileList();
+        }
+        
+        // Form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            
+            // Show loading state
+            outputContent.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>⏳ Generating test cases using AI...</p>
+                    <p>This may take 1-3 minutes depending on the complexity and provider.</p>
+                </div>
+            `;
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Generating...';
+            copyBtn.disabled = true;
+            exportBtn.disabled = true;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/generate`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                displayResults(data);
+                
+            } catch (error) {
+                displayError('Failed to generate test cases: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Generate Test Cases';
+            }
+        });
+        
+        function displayResults(data) {
+            currentPlainContent = data.test_cases_markdown || 'No content generated';
+            currentBddContent = data.bdd_content || 'No BDD content generated';
+            currentFormat = data.output_format || 'plain';
+            
+            // Get the selected output format from the dropdown
+            const selectedFormat = document.getElementById('output_format').value;
+            
+            outputContent.innerHTML = `
+                <div class="output-header">
+                    <h4 class="output-title">📋 Generated Test Cases</h4>
+                    <div class="output-actions">
+                        <button class="action-btn" onclick="copyToClipboard()" id="copyBtn">📋 Copy</button>
+                        <button class="action-btn secondary" onclick="exportContent()" id="exportBtn">📤 Export</button>
+                    </div>
+                </div>
+                
+                <div class="output-tabs">
+                    <button class="output-tab" onclick="switchTab('plain')" id="plainTab">📄 Plain English</button>
+                    <button class="output-tab" onclick="switchTab('bdd')" id="bddTab">📋 BDD/Gherkin</button>
+                </div>
+                
+                <div class="tab-content" id="plainContent">
+                    ${escapeHtml(currentPlainContent)}
+                </div>
+                
+                <div class="tab-content" id="bddContent">
+                    ${escapeHtml(currentBddContent)}
+                </div>
+            `;
+            
+            // Enable action buttons
+            copyBtn.disabled = false;
+            exportBtn.disabled = false;
+            
+            // Update tab visibility based on selected format
+            setTimeout(() => {
+                updateTabVisibility();
+            }, 100);
+        }
+        
+        function displayError(message) {
+            outputContent.innerHTML = `
+                <div class="status error">
+                    <h3>❌ Error</h3>
+                    <p>${message}</p>
+                    <p><strong>Possible solutions:</strong></p>
+                    <ul>
+                        <li>Make sure the API server is running: <code>cd api-server && python app.py</code></li>
+                        <li>Check that your API keys are set in the environment</li>
+                        <li>Try using the GitHub Actions workflow instead</li>
+                    </ul>
+                </div>
+            `;
+            
+            copyBtn.disabled = true;
+            exportBtn.disabled = true;
+        }
+        
+        function switchTab(tabName) {
+            // Only switch if the tab is visible (not hidden)
+            const selectedTab = document.getElementById(tabName + 'Tab');
+            const selectedContent = document.getElementById(tabName + 'Content');
+            
+            if (!selectedTab || selectedTab.classList.contains('hidden')) {
+                return; // Don't switch to hidden tabs
+            }
+            
+            // Remove active class from all tabs and content
+            document.querySelectorAll('.output-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+                content.style.display = 'none';
+            });
+            
+            // Add active class to selected tab and content
+            if (selectedTab) selectedTab.classList.add('active');
+            if (selectedContent) {
+                selectedContent.classList.add('active');
+                selectedContent.style.display = 'block';
+            }
+            
+            // Update current format
+            currentFormat = tabName;
+        }
+        
+        function copyToClipboard() {
+            const content = currentFormat === 'plain' ? currentPlainContent : currentBddContent;
+            
+            if (!content || content === 'No content generated') {
+                alert('No content to copy');
+                return;
+            }
+            
+            navigator.clipboard.writeText(content).then(() => {
+                const btn = document.getElementById('copyBtn');
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                btn.classList.add('copied');
+                
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove('copied');
+                }, 2000);
+            }).catch(() => {
+                alert('Failed to copy to clipboard. Please select and copy manually.');
+            });
+        }
+        
+        function exportContent() {
+            const content = currentFormat === 'plain' ? currentPlainContent : currentBddContent;
+            const filename = currentFormat === 'plain' ? 'test_cases_plain.md' : 'test_cases_bdd.md';
+            
+            if (!content || content === 'No content generated') {
+                alert('No content to export');
+                return;
+            }
+            
+            const blob = new Blob([content], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Panel resizing functionality
+        let isResizing = false;
+        const resizeHandle = document.getElementById('resizeHandle');
+        const inputPanel = document.querySelector('.input-panel');
+        const outputPanel = document.querySelector('.output-panel');
+        
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            document.addEventListener('mousemove', handleResize);
+            document.addEventListener('mouseup', stopResize);
+        });
+        
+        function handleResize(e) {
+            if (!isResizing) return;
+            
+            const containerWidth = document.querySelector('.main-container').offsetWidth;
+            const newInputWidth = (e.clientX / containerWidth) * 100;
+            
+            if (newInputWidth >= 20 && newInputWidth <= 80) {
+                inputPanel.style.width = newInputWidth + '%';
+                outputPanel.style.width = (100 - newInputWidth) + '%';
+            }
+        }
+        
+        function stopResize() {
+            isResizing = false;
+            document.removeEventListener('mousemove', handleResize);
+            document.removeEventListener('mouseup', stopResize);
+        }
+    </script>
+</body>
+</html>
