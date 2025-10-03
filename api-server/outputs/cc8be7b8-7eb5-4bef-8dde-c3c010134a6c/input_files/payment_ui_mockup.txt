@@ -1,0 +1,113 @@
+PAYMENT PORTAL UI MOCKUP DESCRIPTION
+===================================
+
+This document describes the visual layout and components of the Payment Portal interface
+for comprehensive test case generation.
+
+OVERALL LAYOUT:
+--------------
+- Responsive design suitable for desktop, tablet, and mobile
+- Clean, professional appearance with company branding
+- Progress indicator showing checkout steps (Cart → Shipping → Payment → Confirmation)
+- SSL security badge prominently displayed
+
+HEADER SECTION:
+--------------
+- Company logo in top-left corner
+- "Secure Checkout" title prominently displayed
+- Security badges (SSL, PCI Compliance, trusted certifications)
+- Progress breadcrumb: Cart > Shipping > [Payment] > Confirmation
+
+ORDER SUMMARY PANEL (Left Side):
+-------------------------------
+- Order total breakdown:
+  * Subtotal: $127.98
+  * Shipping: $9.99
+  * Tax: $8.64
+  * Discount (SAVE10): -$12.80
+  * Final Total: $133.81
+- "Edit Order" link for modifications
+- Estimated delivery date display
+- Promotional code entry field
+
+PAYMENT FORM PANEL (Right Side):
+-------------------------------
+
+Payment Method Selection:
+- Radio buttons for payment types:
+  * Credit/Debit Card (selected by default)
+  * PayPal 
+  * Apple Pay
+  * Saved Payment Methods (if applicable)
+- Payment method icons displayed (Visa, MC, AmEx, Discover)
+
+Credit Card Form Fields:
+- Card Number: Large input field with real-time formatting (•••• •••• •••• 1234)
+- Expiry Date: MM/YY format with dropdown or masked input
+- CVV: 3-4 digit field with security explanation tooltip
+- Cardholder Name: Text input field
+
+Billing Address Section:
+- Checkbox: "Same as shipping address" (checked by default)
+- Street Address: Text input
+- City: Text input
+- State/Province: Dropdown selection
+- ZIP/Postal Code: Text input
+- Country: Dropdown selection
+
+Additional Options:
+- Checkbox: "Save this payment method for future purchases"
+- Checkbox: "I agree to the Terms and Conditions"
+- Link: "View Terms and Conditions" (opens modal/new tab)
+
+ACTION BUTTONS:
+--------------
+- "Complete Payment" button (large, prominent, blue background)
+- "Back to Shipping" button (secondary style)
+- "Cancel Order" link (small, less prominent)
+
+SECURITY INDICATORS:
+-------------------
+- SSL lock icon in address bar representation
+- "256-bit SSL Encryption" text with lock icon
+- "PCI DSS Compliant" badge
+- "Your payment information is secure" reassurance text
+
+ERROR/SUCCESS STATES:
+--------------------
+- Field validation error styling (red borders, error text)
+- Success confirmation styling (green checkmarks)
+- Loading states for payment processing
+- Clear error message area for payment failures
+
+MOBILE ADAPTATIONS:
+------------------
+- Single column layout on mobile devices
+- Larger touch targets for mobile input
+- Simplified payment method selection
+- Sticky "Complete Payment" button at bottom
+
+ACCESSIBILITY FEATURES:
+----------------------
+- High contrast mode support
+- Screen reader compatible labels
+- Keyboard navigation support
+- Focus indicators for all interactive elements
+- ARIA labels for form validation
+
+RESPONSIVE BREAKPOINTS:
+----------------------
+- Desktop: 1200px+ (two-column layout)
+- Tablet: 768px-1199px (modified two-column)
+- Mobile: <768px (single column layout)
+
+KEY UI TESTING SCENARIOS:
+-------------------------
+1. Form field validation and error display
+2. Payment method switching functionality
+3. Real-time card number formatting
+4. Mobile responsive behavior
+5. Accessibility compliance testing
+6. Loading state management
+7. Error message clarity and placement
+8. Success confirmation flow
