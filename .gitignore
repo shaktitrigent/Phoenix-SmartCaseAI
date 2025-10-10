@@ -46,6 +46,7 @@ generated_tests/
 enhanced_test_output/
 test_outputs/
 generated_outputs/
+api-server/outputs/
 
 # API keys
 *.key

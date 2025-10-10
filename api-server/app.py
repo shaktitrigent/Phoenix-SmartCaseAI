@@ -10,12 +10,16 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from SmartCaseAI.generator import StoryBDDGenerator
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from jira_integration import JiraIntegration
 
 app = Flask(__name__)
 CORS(app)
 
 # Ensure outputs directory exists
-outputs_dir = Path("api-server/outputs")
+# Get the directory where this script is located
+script_dir = Path(__file__).parent
+outputs_dir = script_dir / "outputs"
 outputs_dir.mkdir(exist_ok=True)
 
 @app.route('/api/health', methods=['GET'])
@@ -292,6 +296,122 @@ def list_sessions():
         return jsonify({'sessions': sessions})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# Jira Integration Endpoints
+@app.route('/api/jira/test-connection', methods=['GET'])
+def test_jira_connection():
+    """Test connection to Jira instance"""
+    try:
+        jira = JiraIntegration()
+        result = jira.test_connection()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/jira/projects', methods=['GET'])
+def get_jira_projects():
+    """Get all accessible Jira projects"""
+    try:
+        jira = JiraIntegration()
+        projects = jira.get_projects()
+        return jsonify({'success': True, 'projects': projects})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/jira/projects/<project_key>/issue-types', methods=['GET'])
+def get_project_issue_types(project_key):
+    """Get issue types for a specific project"""
+    try:
+        jira = JiraIntegration()
+        issue_types = jira.get_project_issue_types(project_key)
+        return jsonify({'success': True, 'issue_types': issue_types})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/jira/create-test-cases', methods=['POST'])
+def create_jira_test_cases():
+    """Create test cases in Jira from SmartCaseAI output"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No JSON data provided'})
+        
+        project_key = data.get('project_key')
+        test_cases = data.get('test_cases', [])
+        issue_type = data.get('issue_type', 'Test Case')
+        
+        if not project_key:
+            return jsonify({'success': False, 'error': 'Project key is required'})
+        
+        if not test_cases:
+            return jsonify({'success': False, 'error': 'Test cases are required'})
+        
+        jira = JiraIntegration()
+        result = jira.create_bulk_test_cases(project_key, test_cases, issue_type)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Created {len(result["successful"])} test cases successfully',
+            'results': result
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/jira/search-test-cases', methods=['POST'])
+def search_jira_test_cases():
+    """Search for test cases in Jira"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No JSON data provided'})
+        
+        project_key = data.get('project_key')
+        jql = data.get('jql')
+        
+        if not project_key:
+            return jsonify({'success': False, 'error': 'Project key is required'})
+        
+        jira = JiraIntegration()
+        issues = jira.search_test_cases(project_key, jql)
+        
+        return jsonify({
+            'success': True,
+            'issues': issues,
+            'count': len(issues)
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/jira/issue/<issue_key>', methods=['GET'])
+def get_jira_issue_details(issue_key):
+    """Get detailed information about a specific Jira issue"""
+    try:
+        jira = JiraIntegration()
+        result = jira.get_issue_details(issue_key)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/jira/issue/<issue_key>', methods=['PUT'])
+def update_jira_issue(issue_key):
+    """Update an existing Jira issue"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No JSON data provided'})
+        
+        updates = data.get('updates', {})
+        if not updates:
+            return jsonify({'success': False, 'error': 'No updates provided'})
+        
+        jira = JiraIntegration()
+        result = jira.update_test_case(issue_key, updates)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
