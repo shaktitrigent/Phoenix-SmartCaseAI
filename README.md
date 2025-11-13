@@ -52,7 +52,7 @@ python example_all.py       # Combined multi-provider approach
 - **File Analysis**: Analyze additional files (PDFs, images, documents, spreadsheets) for enhanced context
 - **OCR & Vision**: Extract text from images and analyze UI mockups/wireframes
 - **Multi-format Support**: Handle text, PDF, Word, Excel, CSV, JSON, XML, images, and videos
-- **Extensible**: Ready for Jira and TestRail integration (coming soon)
+
 
 ## Installation
 
@@ -473,7 +473,7 @@ python example_multi_provider.py
 ## Roadmap
 
 - [x] **Google Gemini Support**: Multi-provider support with OpenAI + Gemini
-- [ ] **Jira Integration**: Fetch user stories directly from Jira
+
 - [ ] **TestRail Integration**: Export test cases to TestRail
 - [ ] **Anthropic Claude Support**: Add Claude LLM provider
 - [ ] **Custom Templates**: User-defined test case templates

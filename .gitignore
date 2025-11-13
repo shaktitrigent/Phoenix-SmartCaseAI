@@ -19,27 +19,44 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual environments
 venv/
 env/
 ENV/
+.venv/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*.code-workspace
 
-# OS
+# OS files
 .DS_Store
+.AppleDouble
+.LSOverride
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*~
+.directory
+.Trash-*
 
-# Environment variables
+# Environment variables and secrets
 .env
 .env.local
+.env.production
+*.key
+*.pem
+secrets.txt
+secrets.json
+config.local.*
 
-# Generated test files
+# Generated test files and outputs
 test_cases/
 generated_tests/
 *_tests/
@@ -47,10 +64,54 @@ enhanced_test_output/
 test_outputs/
 generated_outputs/
 api-server/outputs/
+api-server/outputs/**/*
 
-# API keys
-*.key
-secrets.txt
+# Example output files (generated test cases)
+examples/**/*.md
+examples/**/*.feature
+examples/**/*.json
+!examples/README.md
+!examples/**/README.md
+
+# Session directories and files
+session_*/
+*_session_*/
+**/session_*/
+
+# Generated files with timestamps (pattern: prefix_YYYYMMDD_HHMMSS.ext)
+*_*_*.md
+*_*_*.feature
+*_*_*.json
+*_*_*.txt
+# Keep important documentation files
+!README.md
+!CHANGELOG.md
+!PROJECT_STRUCTURE.md
+!INSTALL.md
+!API_KEYS_SETUP.md
 
 # Logs
 *.log
+logs/
+*.log.*
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*~
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Coverage reports
+.coverage
+htmlcov/
+.pytest_cache/
+coverage.xml
+*.cover
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/

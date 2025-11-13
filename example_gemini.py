@@ -70,8 +70,8 @@ def generate_gemini_tests():
         print("\nGenerating comprehensive test cases...")
         print("Using Payment Portal user story + all supporting files")
         
-        # Export both formats to organized directory
-        file_paths = generator.export_to_markdown(
+        # Export to .feature and .json formats
+        file_paths = generator.export_to_feature_and_json(
             user_story=PAYMENT_PORTAL_STORY,
             output_dir="examples/payment_portal/gemini",
             filename_prefix="payment_portal_gemini",
@@ -80,8 +80,20 @@ def generate_gemini_tests():
         )
         
         print(f"\n[SUCCESS] Gemini test cases generated:")
-        print(f"  Plain English: {file_paths['plain_english']}")
-        print(f"  BDD Format: {file_paths['bdd']}")
+        print(f"  Feature File (.feature): {file_paths['feature']}")
+        print(f"  JSON File (.json): {file_paths['json']}")
+        
+        # Also export markdown for comparison
+        md_paths = generator.export_to_markdown(
+            user_story=PAYMENT_PORTAL_STORY,
+            output_dir="examples/payment_portal/gemini",
+            filename_prefix="payment_portal_gemini",
+            num_cases=10,
+            additional_files=additional_files
+        )
+        
+        print(f"  Plain English (Markdown): {md_paths['plain_english']}")
+        print(f"  BDD Format (Markdown): {md_paths['bdd']}")
         
         # Also generate individual formats for comparison
         plain_cases = generator.generate_test_cases(

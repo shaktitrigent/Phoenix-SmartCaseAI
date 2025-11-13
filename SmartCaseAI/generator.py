@@ -566,6 +566,127 @@ Scenario: {scenario.get('scenario', 'Untitled Scenario')}
             "bdd": bdd_filepath
         }
 
+    def _format_bdd_to_feature_file(self, bdd_scenarios: List[Dict], user_story: str) -> str:
+        """Format BDD scenarios to Gherkin .feature file format."""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Group scenarios by feature
+        features_dict = {}
+        for scenario in bdd_scenarios:
+            feature_name = scenario.get('feature', 'Test Feature')
+            if feature_name not in features_dict:
+                features_dict[feature_name] = []
+            features_dict[feature_name].append(scenario)
+        
+        feature_content = f"""# Generated on: {timestamp}
+# User Story: {user_story}
+# LLM Provider(s): {self.llm_provider}
+
+"""
+        
+        # Write each feature with its scenarios
+        for feature_name, scenarios in features_dict.items():
+            feature_content += f"Feature: {feature_name}\n"
+            # Add feature description based on user story
+            feature_content += f"  {user_story}\n\n"
+            
+            for scenario in scenarios:
+                feature_content += f"  Scenario: {scenario.get('scenario', 'Untitled Scenario')}\n"
+                
+                # Add Given steps
+                for given in scenario.get('given', []):
+                    feature_content += f"    Given {given}\n"
+                
+                # Add When steps
+                for when in scenario.get('when', []):
+                    feature_content += f"    When {when}\n"
+                
+                # Add Then steps
+                for then in scenario.get('then', []):
+                    feature_content += f"    Then {then}\n"
+                
+                feature_content += "\n"
+            
+            feature_content += "\n"
+        
+        return feature_content
+
+    def export_to_feature_and_json(
+        self,
+        user_story: str,
+        output_dir: str = ".",
+        filename_prefix: str = "test_cases",
+        num_cases: Optional[int] = None,
+        additional_files: Optional[List[Union[str, Path]]] = None
+    ) -> Dict[str, str]:
+        """
+        Generate test cases and export them to .feature (Gherkin) and .json files.
+        
+        Args:
+            user_story: The user story to generate tests for
+            output_dir: Directory to save the files
+            filename_prefix: Prefix for the generated filenames
+            num_cases: Optional limit on number of test cases
+            additional_files: Optional list of file paths to analyze for additional context
+            
+        Returns:
+            Dictionary with file paths of generated files
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Generate both types of test cases with file analysis
+        plain_tests = self.generate_test_cases(
+            user_story, 
+            output_format="plain", 
+            num_cases=num_cases,
+            additional_files=additional_files
+        )
+        bdd_tests = self.generate_test_cases(
+            user_story, 
+            output_format="bdd", 
+            num_cases=num_cases,
+            additional_files=additional_files
+        )
+        
+        # Format to feature file
+        feature_content = self._format_bdd_to_feature_file(bdd_tests, user_story)
+        
+        # Prepare JSON export data
+        json_data = {
+            "metadata": {
+                "generated_on": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "user_story": user_story,
+                "llm_provider": self.llm_provider,
+                "num_plain_cases": len(plain_tests),
+                "num_bdd_scenarios": len(bdd_tests)
+            },
+            "plain_test_cases": plain_tests,
+            "bdd_scenarios": bdd_tests
+        }
+        
+        # Create filenames
+        feature_filename = f"{filename_prefix}_{timestamp}.feature"
+        json_filename = f"{filename_prefix}_{timestamp}.json"
+        
+        feature_filepath = os.path.join(output_dir, feature_filename)
+        json_filepath = os.path.join(output_dir, json_filename)
+        
+        # Ensure output directory exists
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Write feature file
+        with open(feature_filepath, 'w', encoding='utf-8') as f:
+            f.write(feature_content)
+        
+        # Write JSON file
+        with open(json_filepath, 'w', encoding='utf-8') as f:
+            json.dump(json_data, f, indent=2, ensure_ascii=False)
+        
+        return {
+            "feature": feature_filepath,
+            "json": json_filepath
+        }
+
 
 # Example usage
 if __name__ == "__main__":

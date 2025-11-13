@@ -909,6 +909,8 @@ Example:
             e.preventDefault();
             
             const formData = new FormData(form);
+            // Ensure output_format (select is outside <form>) is included
+            formData.set('output_format', document.getElementById('output_format').value);
             
             // Show loading state
             outputContent.innerHTML = `

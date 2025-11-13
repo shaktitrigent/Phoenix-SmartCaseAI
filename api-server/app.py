@@ -11,7 +11,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from SmartCaseAI.generator import StoryBDDGenerator
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from jira_integration import JiraIntegration
+
 
 app = Flask(__name__)
 CORS(app)
@@ -21,6 +21,14 @@ CORS(app)
 script_dir = Path(__file__).parent
 outputs_dir = script_dir / "outputs"
 outputs_dir.mkdir(exist_ok=True)
+
+@app.route('/', methods=['GET'])
+def root():
+    return jsonify({
+        'message': 'Phoenix-SmartCaseAI API server is running',
+        'try': ['/api/health', '/api/generate'],
+        'service': 'Phoenix-SmartCaseAI API'
+    }), 200
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -33,20 +41,33 @@ def health_check():
 
 @app.route('/api/generate', methods=['POST'])
 def generate_test_cases():
-    """Generate test cases from user story"""
+    """Generate test cases from user story (supports JSON or multipart form)."""
     try:
-        data = request.get_json()
+        # Accept both JSON (from scripts) and multipart form (from web UI)
+        data = request.get_json(silent=True) or {}
+
         if not data:
-            return jsonify({'success': False, 'error': 'No JSON data provided'})
-        
-        user_story = data.get('user_story', '').strip()
+            # Try form fields
+            form = request.form
+            user_story = (form.get('user_story') or '').strip()
+            llm_provider = form.get('llm_provider', 'openai')
+            output_format = form.get('output_format', 'plain')
+            try:
+                num_cases = int(form.get('num_cases', 5))
+            except ValueError:
+                num_cases = 5
+        else:
+            user_story = (data.get('user_story') or '').strip()
+            llm_provider = data.get('llm_provider', 'openai')
+            output_format = data.get('output_format', 'plain')
+            num_cases = data.get('num_cases', 5)
+
         if not user_story:
-            return jsonify({'success': False, 'error': 'User story is required'})
-        
-        llm_provider = data.get('llm_provider', 'openai')
-        output_format = data.get('output_format', 'plain')
-        num_cases = data.get('num_cases', 5)
-        additional_files = data.get('additional_files', [])
+            return jsonify({'success': False, 'error': 'User story is required'}), 400
+
+        additional_files = []
+        # Collect uploaded files from multipart requests and save into session directory later
+        uploaded_files = list(request.files.values()) if request.files else []
         
         # Create session directory
         session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -57,23 +78,38 @@ def generate_test_cases():
         story_file = session_dir / "user_story.txt"
         with open(story_file, 'w', encoding='utf-8') as f:
             f.write(user_story)
+
+        # Save uploaded files (if any) to session_dir/input_files
+        input_dir = session_dir / "input_files"
+        if uploaded_files:
+            input_dir.mkdir(exist_ok=True)
+            for file_storage in uploaded_files:
+                safe_name = Path(file_storage.filename).name
+                dest_path = input_dir / safe_name
+                try:
+                    file_storage.save(dest_path)
+                    additional_files.append(str(dest_path))
+                except Exception:
+                    # Skip problematic files silently; generation can continue
+                    continue
         
         # Initialize generator
         start_time = datetime.now()
         
         try:
-            # Get API keys from environment variables
+            # Get API keys from environment variables (support common aliases)
             api_keys = {
                 "openai": os.getenv("OPENAI_API_KEY"),
-                "gemini": os.getenv("GEMINI_API_KEY"), 
-                "claude": os.getenv("CLAUDE_API_KEY")
+                "gemini": os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"),
+                "claude": os.getenv("CLAUDE_API_KEY") or os.getenv("ANTHROPIC_API_KEY"),
             }
+            print(f"[API] Provider={llm_provider}, Format={output_format}, NumCases={num_cases}")
+            print(f"[API] Keys present -> openai={bool(api_keys['openai'])}, gemini={bool(api_keys['gemini'])}, claude={bool(api_keys['claude'])}")
             generator = StoryBDDGenerator(llm_provider=llm_provider, api_keys=api_keys)
         except Exception as e:
             return jsonify({'success': False, 'error': f'Failed to initialize generator: {str(e)}'})
         
-        # Auto-discover additional files
-        additional_files = []
+        # Auto-discover additional files (code/test files nearby)
         
         # Check for common test files in the project
         test_files = [
@@ -91,6 +127,8 @@ def generate_test_cases():
         
         # Generate test cases based on format
         if output_format == 'both':
+            plain_error = None
+            bdd_error = None
             try:
                 plain_cases = generator.generate_test_cases(
                     user_story,
@@ -113,6 +151,7 @@ def generate_test_cases():
                             f.write(f"{j}. {step}\n")
                         f.write(f"\n**Expected Result:** {case.get('expected', 'Not specified')}\n\n")
             except Exception as e:
+                plain_error = str(e)
                 print(f"Warning: Plain format generation failed: {e}")
                 plain_cases = []
 
@@ -144,8 +183,12 @@ def generate_test_cases():
                             f.write(f"  Then {then}\n")
                         f.write(f"```\n\n")
             except Exception as e:
+                bdd_error = str(e)
                 print(f"Warning: BDD format generation failed: {e}")
                 bdd_cases = []
+            if not bdd_cases:
+                if 'bdd_error' not in locals() or not bdd_error:
+                    bdd_error = 'LLM returned no BDD scenarios.'
                 
             # Combine results
             all_cases = {
@@ -197,10 +240,24 @@ def generate_test_cases():
             if combined_path.exists():
                 files.append({'name': combined_file, 'path': str(combined_path), 'type': 'combined'})
             
+            # Prepare inline content for web UI
+            plain_md = ''
+            bdd_md = ''
+            if 'plain_cases' in locals() and plain_cases:
+                with open(plain_path, 'r', encoding='utf-8') as f:
+                    plain_md = f.read()
+            if 'bdd_cases' in locals() and bdd_cases:
+                with open(bdd_path, 'r', encoding='utf-8') as f:
+                    bdd_md = f.read()
+
             return jsonify({
                 'success': True,
                 'message': 'Test cases generated successfully',
-                'cases': all_cases,
+                'provider': llm_provider,
+                'output_format': 'both',
+                'num_generated_cases': len((plain_cases or [])) + len((bdd_cases or [])),
+                'test_cases_markdown': plain_md or 'No content generated',
+                'bdd_content': bdd_md or (f"Error: {bdd_error}" if bdd_error else 'No BDD content generated'),
                 'files': files,
                 'session_id': session_id,
                 'generation_time': (datetime.now() - start_time).total_seconds()
@@ -252,20 +309,32 @@ def generate_test_cases():
                                 f.write(f"  Then {then}\n")
                             f.write(f"```\n\n")
                 
+                # Read content for inline display
+                content_text = ''
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content_text = f.read()
+                except Exception:
+                    content_text = ''
+
                 return jsonify({
                     'success': True,
                     'message': 'Test cases generated successfully',
-                    'cases': cases,
+                    'provider': llm_provider,
+                    'output_format': output_format,
+                    'num_generated_cases': len(cases) if isinstance(cases, list) else 0,
+                    'test_cases_markdown': content_text if output_format == 'plain' else 'No content generated',
+                    'bdd_content': content_text if output_format == 'bdd' else 'No BDD content generated',
                     'files': [{'name': file_name, 'path': str(file_path), 'type': output_format}],
                     'session_id': session_id,
                     'generation_time': (datetime.now() - start_time).total_seconds()
                 })
                 
             except Exception as e:
-                return jsonify({'success': False, 'error': f'Generation failed: {str(e)}'})
+                return jsonify({'success': False, 'error': f'Generation failed: {str(e)}'}), 500
     
     except Exception as e:
-        return jsonify({'success': False, 'error': f'Server error: {str(e)}'})
+        return jsonify({'success': False, 'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/api/download/<path:filename>')
 def download_file(filename):
@@ -297,121 +366,6 @@ def list_sessions():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Jira Integration Endpoints
-@app.route('/api/jira/test-connection', methods=['GET'])
-def test_jira_connection():
-    """Test connection to Jira instance"""
-    try:
-        jira = JiraIntegration()
-        result = jira.test_connection()
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/jira/projects', methods=['GET'])
-def get_jira_projects():
-    """Get all accessible Jira projects"""
-    try:
-        jira = JiraIntegration()
-        projects = jira.get_projects()
-        return jsonify({'success': True, 'projects': projects})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/jira/projects/<project_key>/issue-types', methods=['GET'])
-def get_project_issue_types(project_key):
-    """Get issue types for a specific project"""
-    try:
-        jira = JiraIntegration()
-        issue_types = jira.get_project_issue_types(project_key)
-        return jsonify({'success': True, 'issue_types': issue_types})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/jira/create-test-cases', methods=['POST'])
-def create_jira_test_cases():
-    """Create test cases in Jira from SmartCaseAI output"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'success': False, 'error': 'No JSON data provided'})
-        
-        project_key = data.get('project_key')
-        test_cases = data.get('test_cases', [])
-        issue_type = data.get('issue_type', 'Test Case')
-        
-        if not project_key:
-            return jsonify({'success': False, 'error': 'Project key is required'})
-        
-        if not test_cases:
-            return jsonify({'success': False, 'error': 'Test cases are required'})
-        
-        jira = JiraIntegration()
-        result = jira.create_bulk_test_cases(project_key, test_cases, issue_type)
-        
-        return jsonify({
-            'success': True,
-            'message': f'Created {len(result["successful"])} test cases successfully',
-            'results': result
-        })
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/jira/search-test-cases', methods=['POST'])
-def search_jira_test_cases():
-    """Search for test cases in Jira"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'success': False, 'error': 'No JSON data provided'})
-        
-        project_key = data.get('project_key')
-        jql = data.get('jql')
-        
-        if not project_key:
-            return jsonify({'success': False, 'error': 'Project key is required'})
-        
-        jira = JiraIntegration()
-        issues = jira.search_test_cases(project_key, jql)
-        
-        return jsonify({
-            'success': True,
-            'issues': issues,
-            'count': len(issues)
-        })
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/jira/issue/<issue_key>', methods=['GET'])
-def get_jira_issue_details(issue_key):
-    """Get detailed information about a specific Jira issue"""
-    try:
-        jira = JiraIntegration()
-        result = jira.get_issue_details(issue_key)
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/jira/issue/<issue_key>', methods=['PUT'])
-def update_jira_issue(issue_key):
-    """Update an existing Jira issue"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'success': False, 'error': 'No JSON data provided'})
-        
-        updates = data.get('updates', {})
-        if not updates:
-            return jsonify({'success': False, 'error': 'No updates provided'})
-        
-        jira = JiraIntegration()
-        result = jira.update_test_case(issue_key, updates)
-        return jsonify(result)
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
