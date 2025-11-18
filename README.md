@@ -8,28 +8,70 @@ Phoenix-SmartCaseAI is an intelligent test case generator that leverages Large L
 
 ### Prerequisites
 1. **Set up API Keys** (Required):
-   - See `API_KEYS_SETUP.md` for detailed instructions
-   - Set environment variables: `OPENAI_API_KEY`, `GEMINI_API_KEY`, `CLAUDE_API_KEY`
+   - Set environment variables: `OPENAI_API_KEY`, `GEMINI_API_KEY` (or `GOOGLE_API_KEY`), `ANTHROPIC_API_KEY` (or `CLAUDE_API_KEY`)
    - At minimum, you need one API key for the provider you want to use
+   - See the [API Keys Setup Guide](#api-keys-setup-guide) section below for detailed instructions
 
 ### Option 1: Web Interface (Recommended)
 1. **Start the API server:**
    ```bash
-   python start_api_server.py
+   # Windows
+   python server_manager.py start
+   # Or use the batch script
+   start_server.bat
+   
+   # Linux/Mac
+   python server_manager.py start
+   # Or use the shell script
+   ./start_server.sh
+   
+   # Or run directly
+   python -m phoenix_smartcaseai.main
    ```
 
-2. **Open the web interface:**
-   - **Two-panel interface**: `web-interface-two-panel/index.html` (Recommended - Input panel + Output panel)
-   - **Single-page interface**: `web-interface-working/index.html` (Alternative - All-in-one)
+2. **Access the web interface:**
+   - Open your browser and navigate to: `http://localhost:8000`
+   - The interface features a modern two-panel layout:
+     - **Input Panel**: Enter user story, select format, choose LLM provider, upload files
+     - **Output Panel**: View generated test cases with Copy and Export functionality
+   - Supports both light and dark modes
 
-### Option 2: Command Line Examples
+### Option 2: Python Package Usage
+Use Phoenix-SmartCaseAI as an importable Python package:
+
+```python
+from phoenix_smartcaseai import generate_bdd_from_story, StoryBDDGenerator
+
+# Quick function call
+scenarios = generate_bdd_from_story(
+    "As a user, I want to log in so I can access my dashboard.",
+    llm_provider="openai",
+    num_cases=5
+)
+
+# Or use the class for more control
+generator = StoryBDDGenerator(llm_provider="openai")
+test_cases = generator.generate_test_cases(
+    user_story="As a user, I want to reset my password.",
+    output_format="bdd",
+    num_cases=5
+)
+```
+
+### Option 3: Command Line Examples
 Ready-to-run examples focusing on a comprehensive Payment Portal user story:
 
 ```bash
 # 1. Set up API keys (at least one required):
+# Windows PowerShell
 $env:OPENAI_API_KEY="sk-..."        # OpenAI GPT models
 $env:GOOGLE_API_KEY="..."           # Google Gemini models  
 $env:ANTHROPIC_API_KEY="sk-ant-..."  # Anthropic Claude models
+
+# Linux/Mac
+export OPENAI_API_KEY="sk-..."
+export GOOGLE_API_KEY="..."
+export ANTHROPIC_API_KEY="sk-ant-..."
 
 # 2. Run comparison examples:
 python example_openai.py    # OpenAI-generated test cases
@@ -56,9 +98,11 @@ python example_all.py       # Combined multi-provider approach
 
 ## Installation
 
+### Method 1: Install as a Python Package (Recommended)
+
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/Phoenix-SmartCaseAI.git
+   git clone https://github.com/shaktitrigent/Phoenix-SmartCaseAI.git
    cd Phoenix-SmartCaseAI
    ```
 
@@ -71,41 +115,79 @@ python example_all.py       # Combined multi-provider approach
    source venv/bin/activate
    ```
 
-3. **Install dependencies:**
+3. **Install the package in development mode:**
+   ```bash
+   pip install -e .
+   ```
+
+   This installs the package and all dependencies, allowing you to import it as `phoenix_smartcaseai`.
+
+### Method 2: Install from Requirements
+
+1. **Follow steps 1-2 from Method 1**
+
+2. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Set up API keys:**
+3. **Set up API keys:**
    ```bash
    # For OpenAI (required for OpenAI provider)
-   # Windows
+   # Windows PowerShell
    $env:OPENAI_API_KEY="your-openai-api-key-here"
    # Linux/Mac
    export OPENAI_API_KEY="your-openai-api-key-here"
    
    # For Google Gemini (required for Gemini provider)
-   # Windows
+   # Windows PowerShell
    $env:GOOGLE_API_KEY="your-google-api-key-here"
    # Linux/Mac
    export GOOGLE_API_KEY="your-google-api-key-here"
    
    # For Claude/Anthropic (required for Claude provider)
-   # Windows
+   # Windows PowerShell
    $env:ANTHROPIC_API_KEY="your-anthropic-api-key-here"
    # Linux/Mac
    export ANTHROPIC_API_KEY="your-anthropic-api-key-here"
    ```
+
+### Method 3: Using .env File (Recommended for Development)
+
+1. **Copy the example environment file:**
+   ```bash
+   cp env.example .env
+   ```
+
+2. **Edit `.env` and add your API keys:**
+   ```bash
+   OPENAI_API_KEY=your-openai-api-key-here
+   GOOGLE_API_KEY=your-google-api-key-here
+   ANTHROPIC_API_KEY=your-anthropic-api-key-here
+   APP_HOST=0.0.0.0
+   APP_PORT=8000
+   DEBUG=False
+   ```
+
+   The application will automatically load these variables when starting.
 
 ## Quick Start
 
 ### Basic Usage
 
 ```python
-from SmartCaseAI import StoryBDDGenerator
+from phoenix_smartcaseai import StoryBDDGenerator, generate_bdd_from_story
 
-# Initialize the generator
-gen = StoryBDDGenerator(llm_provider="openai")
+# Method 1: Simple function call
+scenarios = generate_bdd_from_story(
+    "As a user, I want to reset my password so that I can regain access to my account.",
+    llm_provider="openai",
+    num_cases=5
+)
+print(f"Generated {len(scenarios)} BDD scenarios")
+
+# Method 2: Using the class directly
+generator = StoryBDDGenerator(llm_provider="openai")
 
 # Generate and export test cases to markdown files
 user_story = """
@@ -113,7 +195,7 @@ As a user, I want to reset my password so that I can regain
 access to my account if I forget my current password.
 """
 
-file_paths = gen.export_to_markdown(
+file_paths = generator.export_to_markdown(
     user_story=user_story,
     output_dir="test_cases",
     filename_prefix="password_reset",
@@ -127,10 +209,10 @@ print(f"BDD tests: {file_paths['bdd']}")
 ### Enhanced Usage with File Analysis
 
 ```python
-from SmartCaseAI import StoryBDDGenerator
+from phoenix_smartcaseai import StoryBDDGenerator
 
 # Initialize the generator
-gen = StoryBDDGenerator(llm_provider="openai")
+generator = StoryBDDGenerator(llm_provider="openai")
 
 # User story
 user_story = """
@@ -147,7 +229,7 @@ additional_files = [
 ]
 
 # Generate test cases with file analysis
-test_cases = gen.generate_test_cases(
+test_cases = generator.generate_test_cases(
     user_story=user_story,
     output_format="bdd",
     num_cases=5,
@@ -155,7 +237,7 @@ test_cases = gen.generate_test_cases(
 )
 
 # Or export directly to markdown with file analysis
-file_paths = gen.export_to_markdown(
+file_paths = generator.export_to_markdown(
     user_story=user_story,
     output_dir="test_cases",
     filename_prefix="login_tests",
@@ -339,12 +421,12 @@ Phoenix-SmartCaseAI uses strict JSON schemas to ensure consistent output:
 
 ### StoryBDDGenerator
 
-#### `__init__(llm_provider="openai", api_key=None)`
+#### `__init__(llm_provider="openai", api_keys=None)`
 Initialize the generator with your preferred LLM provider.
 
 **Parameters:**
-- `llm_provider` (str): "openai", "gemini", or "claude"
-- `api_key` (str, optional): Override environment variable
+- `llm_provider` (str): "openai", "gemini", "claude", or "all" (for multi-provider)
+- `api_keys` (dict, optional): Dictionary with keys "openai", "gemini", "claude" to override environment variables
 
 #### `generate_test_cases(user_story, output_format="bdd", num_cases=None, additional_files=None)`
 Generate test cases from a user story with optional file analysis.
@@ -395,65 +477,51 @@ Analyze multiple files and return results.
 - **Images**: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.tiff`
 - **Videos**: `.mp4`, `.avi`, `.mov`, `.wmv`
 
-## Command Line Interface
+## Server Management
 
-Phoenix-SmartCaseAI includes a powerful CLI for easy integration into your workflow:
+Phoenix-SmartCaseAI includes a unified server management script for easy start/stop/restart operations:
 
-### Basic CLI Usage
+### Server Management Commands
 
 ```bash
-# Generate test cases from a user story (OpenAI default)
-phoenix-smartcase --story "As a user, I want to login..." --output-dir ./tests
+# Start the web server
+python server_manager.py start
 
-# Use Google Gemini provider
-phoenix-smartcase --story "As a user, I want to login..." --provider gemini
+# Stop the web server
+python server_manager.py stop
 
-# Multi-provider generation (OpenAI + Gemini)
-phoenix-smartcase --story "As a user, I want to login..." --provider all
+# Restart the web server
+python server_manager.py restart
 
-# Generate with additional files for context
-phoenix-smartcase --story "As a user, I want to login..." \
-                  --files requirements.pdf ui_mockup.png api_spec.json \
-                  --provider all
-
-# Use a directory of files with multi-provider
-phoenix-smartcase --story "As a user, I want to login..." \
-                  --file-dir ./project_docs --provider all
-
-# Interactive mode with custom API keys
-phoenix-smartcase --interactive \
-                  --provider all \
-                  --openai-key sk-xxx \
-                  --gemini-key yyy
-
-# Generate only BDD format with Gemini
-phoenix-smartcase --story "As a user, I want to login..." \
-                  --format bdd --provider gemini
-
-# Custom output directory and prefix with multi-provider
-phoenix-smartcase --story "As a user, I want to login..." \
-                  --output-dir ./my_tests \
-                  --prefix login_feature \
-                  --provider all \
-                  --files requirements.pdf
+# Check server status
+python server_manager.py status
 ```
 
-### CLI Options
+### Convenience Scripts
 
-- `--story`, `-s`: User story text directly as argument
-- `--story-file`, `-f`: Path to file containing user story
-- `--interactive`, `-i`: Interactive mode - enter story via prompt
-- `--format`: Output format ("plain", "bdd", or "both")
-- `--provider`: LLM provider ("openai", "gemini", or "all") 
-- `--num-cases`, `-n`: Number of test cases to generate
-- `--output-dir`, `-o`: Directory to save generated files
-- `--prefix`, `-p`: Filename prefix for generated files
-- `--files`, `-F`: Additional files to analyze for context
-- `--file-dir`: Directory containing files to analyze
-- `--openai-key`: OpenAI API key (or set OPENAI_API_KEY env var)
-- `--gemini-key`: Google API key for Gemini (or set GOOGLE_API_KEY env var)
-- `--api-key`: OpenAI API key (legacy - use --openai-key instead)
-- `--quiet`, `-q`: Suppress output except errors
+**Windows:**
+```bash
+# Start server
+start_server.bat
+
+# Stop server
+stop_server.bat
+```
+
+**Linux/Mac:**
+```bash
+# Start server
+./start_server.sh
+
+# Stop server
+./stop_server.sh
+```
+
+The server manager automatically:
+- Detects and uses the virtual environment's Python executable
+- Finds and manages the server process
+- Provides status information including health check
+- Handles port conflicts gracefully
 
 ## Testing
 
@@ -473,13 +541,19 @@ python example_multi_provider.py
 ## Roadmap
 
 - [x] **Google Gemini Support**: Multi-provider support with OpenAI + Gemini
+- [x] **Anthropic Claude Support**: Add Claude LLM provider
+- [x] **Web Interface**: Modern two-panel web UI with file upload support
+- [x] **Python Package**: Installable package with `src/` layout
+- [x] **Docker Support**: Containerized deployment with Docker and Docker Compose
+- [x] **Server Management**: Unified scripts for start/stop/restart operations
+- [x] **File Analysis**: Support for PDFs, images, documents, spreadsheets
+- [x] **API Endpoints**: FastAPI-based REST API for programmatic access
 
 - [ ] **TestRail Integration**: Export test cases to TestRail
-- [ ] **Anthropic Claude Support**: Add Claude LLM provider
 - [ ] **Custom Templates**: User-defined test case templates
 - [ ] **Batch Processing**: Process multiple user stories at once
-- [ ] **Web Interface**: Simple web UI for non-technical users
 - [ ] **Test Case Comparison**: Advanced comparison between provider results
+- [ ] **Real-time Progress**: Server-Sent Events (SSE) for live generation updates
 
 ## 🤝 Contributing
 
@@ -557,18 +631,18 @@ source ~/.bashrc
 ```bash
 # Test your configuration
 python -c "
-from SmartCaseAI.generator import StoryBDDGenerator
-from config import Config
+from phoenix_smartcaseai import StoryBDDGenerator
+import os
 
 # Check which API keys are available
-print('OpenAI Key:', '[OK]' if Config.get_api_key('openai') else '[MISSING]')
-print('Gemini Key:', '[OK]' if Config.get_api_key('gemini') else '[MISSING]') 
-print('Claude Key:', '[OK]' if Config.get_api_key('claude') else '[MISSING]')
+print('OpenAI Key:', '[OK]' if os.getenv('OPENAI_API_KEY') else '[MISSING]')
+print('Gemini Key:', '[OK]' if os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY') else '[MISSING]') 
+print('Claude Key:', '[OK]' if os.getenv('ANTHROPIC_API_KEY') or os.getenv('CLAUDE_API_KEY') else '[MISSING]')
 
 # Test generator initialization
 try:
-    gen = StoryBDDGenerator(llm_provider='all')
-    print('[OK] All providers ready!')
+    gen = StoryBDDGenerator(llm_provider='openai')
+    print('[OK] Generator initialized successfully!')
 except Exception as e:
     print(f'[ERROR] Setup issue: {e}')
 "
@@ -579,9 +653,9 @@ except Exception as e:
 | Mode | Required API Keys |
 |------|-------------------|
 | `openai` | `OPENAI_API_KEY` |
-| `gemini` | `GOOGLE_API_KEY` |
-| `claude` | `ANTHROPIC_API_KEY` |
-| `all` | **All three keys** |
+| `gemini` | `GOOGLE_API_KEY` or `GEMINI_API_KEY` |
+| `claude` | `ANTHROPIC_API_KEY` or `CLAUDE_API_KEY` |
+| `all` | **All three keys** (at least one for each provider) |
 
 ### Pro Tips
 - **Multi-provider mode** (`all`) requires all three API keys but provides the most comprehensive results
@@ -590,16 +664,384 @@ except Exception as e:
 - Each provider has different rate limits and pricing
 - For production use, consider setting up billing alerts
 
-## Production Ready
+## 📦 Package Installation & Usage
 
-### Package Installation
+### Install as a Python Package
+
+Phoenix-SmartCaseAI is a fully installable Python package with a modern `src/` layout, following Python packaging best practices.
+
+#### Build the Package
+
 ```bash
-# Install as a package
+# Install build tools
+pip install build wheel
+
+# Build the package
+python -m build
+
+# This creates:
+# - dist/phoenix_smartcaseai-<version>-py3-none-any.whl (wheel)
+# - dist/phoenix_smartcaseai-<version>.tar.gz (source distribution)
+```
+
+#### Install the Package
+
+```bash
+# Install from wheel file
+pip install dist/phoenix_smartcaseai-*.whl
+
+# Or install in development mode (recommended for development)
 pip install -e .
 
-# Use CLI anywhere
-phoenix-smartcase --version
+# Or install from source
+pip install .
 ```
+
+#### Use as a Python Module
+
+```python
+# Import convenience functions
+from phoenix_smartcaseai import (
+    generate_bdd_from_story,
+    generate_plain_from_story,
+    StoryBDDGenerator,
+    TestCase,
+    BDDScenario
+)
+
+# Simple function call for BDD scenarios
+scenarios = generate_bdd_from_story(
+    "As a user, I want to log in so I can access my dashboard.",
+    llm_provider="openai",
+    num_cases=5
+)
+print(f"Generated {len(scenarios)} scenarios")
+print(scenarios[0]['scenario'])
+
+# Simple function call for plain English test cases
+test_cases = generate_plain_from_story(
+    "As a user, I want to reset my password.",
+    llm_provider="openai",
+    num_cases=5
+)
+
+# Or use the class directly for more control
+generator = StoryBDDGenerator(llm_provider="openai")
+test_cases = generator.generate_test_cases(
+    user_story="As a user, I want to reset my password.",
+    output_format="bdd",
+    num_cases=5,
+    additional_files=["requirements.pdf", "ui_mockup.png"]
+)
+```
+
+## 🌐 Web Interface & API
+
+### Run as a Web Service
+
+Phoenix-SmartCaseAI includes a FastAPI-based web interface with a modern two-panel layout for easy access.
+
+#### Start the Web Service
+
+```bash
+# Method 1: Using the server manager (Recommended)
+python server_manager.py start
+
+# Method 2: Using the package entrypoint
+python -m phoenix_smartcaseai.main
+
+# Method 3: Using uvicorn directly
+uvicorn phoenix_smartcaseai.web_app:app --host 0.0.0.0 --port 8000
+
+# Method 4: Using convenience scripts
+# Windows
+start_server.bat
+
+# Linux/Mac
+./start_server.sh
+```
+
+#### Server Management
+
+The `server_manager.py` script provides easy server management:
+
+```bash
+# Start the server
+python server_manager.py start
+
+# Stop the server
+python server_manager.py stop
+
+# Restart the server
+python server_manager.py restart
+
+# Check server status
+python server_manager.py status
+```
+
+#### Access the Web Interface
+
+1. Open your browser and navigate to: `http://localhost:8000`
+2. You'll see a modern two-panel web interface:
+   - **Input Panel**: 
+     - Paste your user story
+     - Select output format (Plain English, BDD, or Both)
+     - Choose LLM provider (OpenAI, Gemini, Claude)
+     - Upload additional files for context
+     - Generate test cases with a single click
+   - **Output Panel**:
+     - View generated test cases in both formats
+     - Switch between Plain English and BDD/Gherkin tabs
+     - Copy test cases to clipboard
+     - Export test cases as `.txt` files
+     - Progress animation during generation
+   - **Features**:
+     - Light/Dark mode toggle
+     - Responsive design
+     - Real-time generation status
+
+#### API Endpoints
+
+- `GET /` - Web interface (HTML) - Two-panel interface
+- `GET /health` - Health check endpoint (returns `{"status": "ok"}`)
+- `POST /generate-bdd` - Generate test cases (accepts form data with file uploads)
+
+#### Example API Usage
+
+```bash
+# Using curl (with file upload)
+curl -X POST "http://localhost:8000/generate-bdd" \
+  -F "user_story=As a user, I want to log in so I can access my dashboard." \
+  -F "output_format=bdd" \
+  -F "llm_provider=openai" \
+  -F "num_cases=5" \
+  -F "files=@requirements.pdf" \
+  -F "files=@ui_mockup.png"
+
+# Using Python requests
+import requests
+
+# Without file upload
+response = requests.post(
+    "http://localhost:8000/generate-bdd",
+    data={
+        "user_story": "As a user, I want to log in so I can access my dashboard.",
+        "output_format": "bdd",
+        "llm_provider": "openai",
+        "num_cases": 5
+    }
+)
+result = response.json()
+print(result['bdd_content'])
+
+# With file upload
+files = [
+    ('files', open('requirements.pdf', 'rb')),
+    ('files', open('ui_mockup.png', 'rb'))
+]
+response = requests.post(
+    "http://localhost:8000/generate-bdd",
+    data={
+        "user_story": "As a user, I want to log in so I can access my dashboard.",
+        "output_format": "bdd",
+        "llm_provider": "openai",
+        "num_cases": 5
+    },
+    files=files
+)
+result = response.json()
+print(result['bdd_content'])
+```
+
+#### API Response Format
+
+```json
+{
+  "success": true,
+  "bdd_content": "# BDD Test Scenarios...",
+  "plain_content": "# Test Cases - Plain English...",
+  "num_scenarios": 5,
+  "num_cases": 5,
+  "generation_time": "12.34s",
+  "llm_provider": "openai"
+}
+```
+
+## ☁️ Cloud Deployment
+
+### Docker Deployment
+
+Phoenix-SmartCaseAI includes Docker support for easy cloud deployment.
+
+#### Build Docker Image
+
+```bash
+docker build -t phoenix-smartcaseai:1.0.0 .
+```
+
+#### Run with Docker
+
+```bash
+docker run -d \
+  -p 8000:8000 \
+  -e OPENAI_API_KEY=your-key-here \
+  -e GEMINI_API_KEY=your-key-here \
+  -e ANTHROPIC_API_KEY=your-key-here \
+  --name phoenix-smartcaseai \
+  phoenix-smartcaseai:1.0.0
+```
+
+#### Docker Compose (Recommended)
+
+```bash
+# Copy environment file
+cp env.example .env
+
+# Edit .env and add your API keys
+# Then run:
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop the service
+docker-compose down
+```
+
+### Environment Configuration
+
+Create a `.env` file in the project root:
+
+```bash
+# Application Settings
+APP_HOST=0.0.0.0
+APP_PORT=8000
+DEBUG=False
+
+# LLM API Keys
+OPENAI_API_KEY=your-openai-api-key-here
+GEMINI_API_KEY=your-google-api-key-here
+CLAUDE_API_KEY=your-anthropic-api-key-here
+```
+
+### Cloud Platform Deployment
+
+#### AWS EC2 / DigitalOcean / Linode
+
+1. **SSH into your server:**
+   ```bash
+   ssh user@your-server-ip
+   ```
+
+2. **Clone the repository:**
+   ```bash
+   git clone https://github.com/shaktitrigent/Phoenix-SmartCaseAI.git
+   cd Phoenix-SmartCaseAI
+   ```
+
+3. **Build and run with Docker:**
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Access the service:**
+   - Open `http://your-server-ip:8000` in your browser
+   - Make sure port 8000 is open in your firewall
+
+#### Render / Railway / Heroku
+
+1. **Connect your GitHub repository**
+2. **Set environment variables** in the platform dashboard:
+   - `OPENAI_API_KEY`
+   - `GEMINI_API_KEY` (optional)
+   - `ANTHROPIC_API_KEY` (optional)
+   - `APP_PORT=8000`
+3. **Deploy** - The platform will automatically build and deploy
+
+#### Kubernetes Deployment
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phoenix-smartcaseai
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: phoenix-smartcaseai
+  template:
+    metadata:
+      labels:
+        app: phoenix-smartcaseai
+    spec:
+      containers:
+      - name: phoenix-smartcaseai
+        image: phoenix-smartcaseai:1.0.0
+        ports:
+        - containerPort: 8000
+        env:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-keys
+              key: openai-key
+        - name: APP_PORT
+          value: "8000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: phoenix-smartcaseai-service
+spec:
+  selector:
+    app: phoenix-smartcaseai
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8000
+  type: LoadBalancer
+```
+
+## 🧪 Testing
+
+### Run Unit Tests
+
+```bash
+# Install test dependencies
+pip install -e ".[dev]"
+
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=phoenix_smartcaseai --cov-report=html
+
+# Run specific test file
+pytest tests/test_generator.py
+
+# Run integration tests (requires API keys)
+pytest tests/test_web_app.py -m integration
+```
+
+### Test the Web API
+
+```bash
+# Start the service
+python -m phoenix_smartcaseai.main
+
+# In another terminal, test the health endpoint
+curl http://localhost:8000/health
+
+# Test the generation endpoint
+curl -X POST http://localhost:8000/generate-bdd \
+  -F "user_story=As a user, I want to log in." \
+  -F "output_format=bdd" \
+  -F "llm_provider=openai" \
+  -F "num_cases=2"
+```
+
+## Production Ready
 
 ### Production Features
 - **Environment Validation**: Automatic checks for API keys and system requirements
@@ -608,19 +1050,20 @@ phoenix-smartcase --version
 - **Error Handling**: Comprehensive error handling with retry logic
 - **Logging**: Configurable logging levels for production monitoring
 - **Rate Limiting**: Built-in protection against API rate limits
+- **Docker Support**: Containerized deployment for consistency
+- **Health Checks**: Built-in health check endpoints for monitoring
 
 ### Example Production Usage
 ```python
-from SmartCaseAI import StoryBDDGenerator
-from config import get_config
+from phoenix_smartcaseai import StoryBDDGenerator
 
-# Load production configuration and validate environment
-config = get_config("production")
-validation = config.validate_environment()
-
-if validation['valid']:
-    generator = StoryBDDGenerator(llm_provider="openai")
-    # Generate test cases for production use
+# Simple usage
+generator = StoryBDDGenerator(llm_provider="openai")
+test_cases = generator.generate_test_cases(
+    user_story="As a user, I want to log in.",
+    output_format="bdd",
+    num_cases=5
+)
 ```
 
 ## 🙏 Acknowledgments

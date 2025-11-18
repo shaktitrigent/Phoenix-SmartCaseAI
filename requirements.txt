@@ -1,5 +1,4 @@
-# Production requirements for Phoenix-SmartCaseAI
-# Core dependencies
+# Core dependencies for Phoenix-SmartCaseAI
 pydantic>=2.11.0,<3.0.0
 langchain-core>=0.3.76,<0.4.0
 langchain-openai>=0.3.30,<0.4.0
@@ -14,8 +13,17 @@ PyPDF2>=3.0.0,<4.0.0
 pdfplumber>=0.9.0,<1.0.0
 Pillow>=10.0.0,<11.0.0
 pytesseract>=0.3.10,<1.0.0
-openai>=1.99.9,<2.0.0
 
-# Runtime dependencies (automatically included via langchain)
-# typing-extensions>=4.7 - included via pydantic
-# PyYAML>=5.3 - included via langchain-core
+# Web framework dependencies
+fastapi>=0.104.0,<1.0.0
+uvicorn[standard]>=0.24.0,<1.0.0
+jinja2>=3.1.0,<4.0.0
+python-multipart>=0.0.6,<1.0.0
+
+# Configuration
+python-dotenv>=1.0.0,<2.0.0
+
+# Build dependencies
+setuptools>=61.0
+wheel
+build

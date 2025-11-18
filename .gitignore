@@ -17,9 +17,16 @@ sdist/
 var/
 wheels/
 *.egg-info/
+**/*.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
+*.whl
+*.tar.gz
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
 
 # Virtual environments
 venv/
@@ -65,6 +72,10 @@ test_outputs/
 generated_outputs/
 api-server/outputs/
 api-server/outputs/**/*
+outputs/
+temp_uploads/
+temp_*/
+*.tmp.*
 
 # Example output files (generated test cases)
 examples/**/*.md
@@ -89,6 +100,8 @@ session_*/
 !PROJECT_STRUCTURE.md
 !INSTALL.md
 !API_KEYS_SETUP.md
+!PACKAGING_GUIDE.md
+!SERVER_GUIDE.md
 
 # Logs
 *.log
@@ -109,9 +122,36 @@ logs/
 # Coverage reports
 .coverage
 htmlcov/
-.pytest_cache/
 coverage.xml
 *.cover
+.coverage.*
+.tox/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Server process files
+*.pid
+*.sock
+
+# Local development
+.local/
+local_settings.py
+settings_local.py
+
+# Package lock files (if using pip-tools)
+requirements-dev.txt
+requirements-test.txt
+
+# FastAPI/Uvicorn
+uvicorn.log
+
+# LangChain cache
+.langchain/
+
+# Temporary upload directories
+phoenix_smartcaseai_*/
