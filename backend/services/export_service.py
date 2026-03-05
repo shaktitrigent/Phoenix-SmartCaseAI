@@ -1,6 +1,7 @@
 import io
 import os
 import html
+import json
 from datetime import datetime
 from typing import Dict, List
 
@@ -39,6 +40,14 @@ class ExportService:
         with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
             df.to_excel(writer, sheet_name="TestCases", index=False)
         return buffer.getvalue()
+
+    def export_csv_bytes(self, test_cases: List[Dict]) -> bytes:
+        df = self._to_dataframe(test_cases)
+        return df.to_csv(index=False).encode("utf-8")
+
+    @staticmethod
+    def export_json_bytes(test_cases: List[Dict]) -> bytes:
+        return json.dumps({"test_cases": test_cases}, ensure_ascii=False, indent=2).encode("utf-8")
 
     def export_pdf_bytes(self, test_cases: List[Dict]) -> bytes:
         def _safe(value) -> str:
@@ -157,6 +166,37 @@ class ExportService:
                 lines.append("    When the test flow is executed")
 
             lines.append(f"    Then {expected or 'the expected behavior is observed'}")
+            lines.append("")
+
+        return "\n".join(lines).encode("utf-8")
+
+    @staticmethod
+    def export_plain_text_bytes(test_cases: List[Dict]) -> bytes:
+        lines = [
+            "Generated Test Cases",
+            f"Total: {len(test_cases)}",
+            "",
+        ]
+
+        for idx, case in enumerate(test_cases, start=1):
+            case_id = str(case.get("test_case_id", f"TC-{idx:03d}")).strip()
+            title = str(case.get("title", "Generated test case")).strip()
+            preconditions = str(case.get("preconditions", "-")).strip() or "-"
+            expected = str(case.get("expected_result", "-")).strip() or "-"
+            test_type = str(case.get("test_type", "-")).strip() or "-"
+            priority = str(case.get("priority", "-")).strip() or "-"
+            steps = case.get("steps", []) or []
+
+            lines.append(f"{idx}. {case_id} - {title}")
+            lines.append(f"Type: {test_type} | Priority: {priority}")
+            lines.append(f"Preconditions: {preconditions}")
+            lines.append("Steps:")
+            if steps:
+                for step_idx, step in enumerate(steps, start=1):
+                    lines.append(f"  {step_idx}. {str(step).strip()}")
+            else:
+                lines.append("  1. No steps provided.")
+            lines.append(f"Expected Result: {expected}")
             lines.append("")
 
         return "\n".join(lines).encode("utf-8")

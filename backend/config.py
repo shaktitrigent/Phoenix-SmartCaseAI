@@ -29,10 +29,24 @@ class Config:
 
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    GEMINI_MINI_MODEL: str = os.getenv("GEMINI_MINI_MODEL", "gemini-2.0-flash-lite")
     GEMINI_BASE_URL: str = os.getenv(
         "GEMINI_BASE_URL",
         "https://generativelanguage.googleapis.com/v1beta",
     ).rstrip("/")
+
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_BASE_URL: str = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    OPENAI_MINI_MODEL: str = os.getenv("OPENAI_MINI_MODEL", "gpt-4.1-mini")
+    OPENAI_NANO_MODEL: str = os.getenv("OPENAI_NANO_MODEL", "gpt-4.1-nano")
+    OPENAI_4O_MINI_MODEL: str = os.getenv("OPENAI_4O_MINI_MODEL", "gpt-4o-mini")
+    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+    ANTHROPIC_BASE_URL: str = os.getenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/")
+    CLAUDE_SONNET_MODEL: str = os.getenv("CLAUDE_SONNET_MODEL", "claude-3-7-sonnet-latest")
+    CLAUDE_HAIKU_MODEL: str = os.getenv("CLAUDE_HAIKU_MODEL", "claude-3-5-haiku-latest")
+    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
+    OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
+    LLM_DEFAULT_MODEL_ID: str = os.getenv("LLM_DEFAULT_MODEL_ID", "gemini-2.5-flash")
 
     TESTRAIL_BASE_URL: str = os.getenv("TESTRAIL_BASE_URL", "").rstrip("/")
     TESTRAIL_USERNAME: str = os.getenv("TESTRAIL_USERNAME", "")
@@ -46,4 +60,13 @@ class Config:
         "EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"
     )
 
-    DEFAULT_TEST_TYPES = ["positive", "negative", "edge", "create", "update"]
+    DEFAULT_TEST_TYPES = [
+        "functional",
+        "regression",
+        "ui",
+        "security",
+        "performance",
+        "create",
+        "update",
+        "edge",
+    ]

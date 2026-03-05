@@ -28,17 +28,25 @@ class TestRailService:
         project_id: Optional[str] = None,
         suite_id: Optional[str] = None,
         section_id: Optional[str] = None,
+        repository_mode: str = "single_repository",
     ) -> Dict:
         resolved_project = str(project_id or self.default_project_id or "").strip()
         resolved_suite = str(suite_id or self.default_suite_id or "").strip()
         resolved_section = str(section_id or self.default_section_id or "").strip()
+        resolved_repository_mode = str(repository_mode or "single_repository").strip() or "single_repository"
 
         if not test_cases:
             raise ValueError("No test cases found to push.")
 
         # Keep implementation usable before credentials are provided.
         if not self._is_ready_for_live_push(resolved_section):
-            return self._mock_push(test_cases, resolved_project, resolved_suite, resolved_section)
+            return self._mock_push(
+                test_cases,
+                resolved_project,
+                resolved_suite,
+                resolved_section,
+                resolved_repository_mode,
+            )
 
         if not resolved_suite and resolved_project:
             resolved_suite = self._resolve_suite_id(resolved_project)
@@ -60,6 +68,7 @@ class TestRailService:
 
         return {
             "mode": "live",
+            "repository_mode": resolved_repository_mode,
             "project_id": resolved_project,
             "suite_id": resolved_suite,
             "section_id": resolved_section,
@@ -177,7 +186,7 @@ class TestRailService:
 
     @staticmethod
     def _mock_push(
-        test_cases: List[Dict], project_id: str, suite_id: str, section_id: str
+        test_cases: List[Dict], project_id: str, suite_id: str, section_id: str, repository_mode: str
     ) -> Dict:
         results = []
         for idx, case in enumerate(test_cases, start=1):
@@ -193,6 +202,7 @@ class TestRailService:
 
         return {
             "mode": "mock",
+            "repository_mode": repository_mode,
             "message": (
                 "TestRail credentials or section_id are missing. "
                 "Returning mock push result until live configuration is provided."

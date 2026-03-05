@@ -8,10 +8,13 @@ export default defineConfig({
     proxy: {
       "/generate-from-jira": "http://localhost:5000",
       "/manual-generate-test": "http://localhost:5000",
+      "/generate-locators": "http://localhost:5000",
+      "/export-testcases": "http://localhost:5000",
       "/testrail": "http://localhost:5000",
       "/attachment": "http://localhost:5000",
       "/export": "http://localhost:5000",
-      "/health": "http://localhost:5000"
+      "/health": "http://localhost:5000",
+      "/llm-models": "http://localhost:5000"
     }
   }
 });

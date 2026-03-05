@@ -25,7 +25,7 @@ class DocumentParser:
                 return self._parse_csv(file_path)
             if extension == ".xml":
                 return self._parse_xml(file_path)
-            if extension in [".txt", ".log", ".md"]:
+            if extension in [".txt", ".log", ".md", ".json", ".yaml", ".yml", ".html", ".htm", ".rtf"]:
                 return self._parse_text(file_path)
             return ""
         except Exception:
@@ -66,4 +66,3 @@ class DocumentParser:
     def _parse_text(file_path: str) -> str:
         with open(file_path, "r", encoding="utf-8", errors="ignore") as fp:
             return fp.read().strip()
-

@@ -47,8 +47,8 @@ function IssueDataPanel({ sourceData }) {
   };
 
   return (
-    <div className="panel">
-      <h3>Fetched Jira Data</h3>
+    <div className="card">
+      <h3 className="section-title">Fetched Jira Data</h3>
       <div className="field">
         <label>Issue Key</label>
         <div className="read-box">{sourceData.issue_key || "-"}</div>

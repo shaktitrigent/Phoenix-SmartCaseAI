@@ -2,29 +2,58 @@ import { useEffect, useState } from "react";
 import ExportButtons from "../components/ExportButtons";
 import IssueDataPanel from "../components/IssueDataPanel";
 import JiraForm from "../components/JiraForm";
+import LoadingOverlay from "../components/LoadingOverlay";
+import LocatorForm from "../components/LocatorForm";
+import LocatorResults from "../components/LocatorResults";
 import TestCaseTable from "../components/TestCaseTable";
-import { generateFromJira, manualGenerateTest, previewJira, pushToTestRail } from "../services/api";
+import ToastStack from "../components/ToastStack";
+import {
+  exportTestCases,
+  generateFromJira,
+  generateLocators,
+  getLLMModels,
+  manualGenerateTest,
+  submitReviewedTestCases,
+  pushToTestRail
+} from "../services/api";
 
-const THEME_KEY = "jira-ui-theme";
+const TABS = [
+  { id: "jira", label: "Jira Issue" },
+  { id: "manual", label: "Manual Input" },
+  { id: "locators", label: "Generate Locators" }
+];
+const THEME_KEY = "qa-automation-suite-theme";
 
 function Home() {
+  const [activeTab, setActiveTab] = useState("jira");
   const [loading, setLoading] = useState(false);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [testrailMessage, setTestrailMessage] = useState("");
-  const [testrailError, setTestrailError] = useState("");
-  const [testrailLinks, setTestrailLinks] = useState([]);
-  const [testrailSectionUrl, setTestrailSectionUrl] = useState("");
   const [pushLoading, setPushLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [locatorsLoading, setLocatorsLoading] = useState(false);
   const [issueKey, setIssueKey] = useState("");
   const [sourceData, setSourceData] = useState(null);
   const [testCases, setTestCases] = useState([]);
-  const [previewReady, setPreviewReady] = useState(false);
+  const [reviewedTestCases, setReviewedTestCases] = useState([]);
+  const [models, setModels] = useState([]);
+  const [defaultModelId, setDefaultModelId] = useState("gemini-2.5-flash");
+  const [modelUsed, setModelUsed] = useState("");
+  const [locatorResult, setLocatorResult] = useState(null);
+  const [locatorLanguage, setLocatorLanguage] = useState("Python");
+  const [toasts, setToasts] = useState([]);
+  const [testrailLinks, setTestrailLinks] = useState([]);
+  const [testrailSectionUrl, setTestrailSectionUrl] = useState("");
+  const [testRailConfig, setTestRailConfig] = useState({
+    project_id: "",
+    suite_id: "",
+    section_id: ""
+  });
+  const exportableCount = reviewedTestCases.filter(
+    (item) => String(item?.review_status || "approved").toLowerCase() !== "rejected"
+  ).length;
   const [theme, setTheme] = useState(() => {
     if (typeof window === "undefined") {
       return "light";
     }
-
     const stored = window.localStorage.getItem(THEME_KEY);
     if (stored === "light" || stored === "dark") {
       return stored;
@@ -32,87 +61,127 @@ function Home() {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
 
-  const handleThemeToggle = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    window.localStorage.setItem(THEME_KEY, nextTheme);
+  const addToast = (message, type = "info") => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    setToasts((prev) => [...prev, { id, message, type }]);
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((item) => item.id !== id));
+    }, 4500);
+  };
+
+  const dismissToast = (id) => {
+    setToasts((prev) => prev.filter((item) => item.id !== id));
   };
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        const response = await getLLMModels();
+        setModels(Array.isArray(response?.models) ? response.models : []);
+        setDefaultModelId(response?.default_model_id || "gemini-2.5-flash");
+      } catch {
+        setModels([]);
+        setDefaultModelId("gemini-2.5-flash");
+      }
+    };
+    loadModels();
+  }, []);
+
   const handleSubmit = async (payload) => {
     try {
       setLoading(true);
-      setError("");
-      setTestrailMessage("");
-      setTestrailError("");
       setTestrailLinks([]);
       setTestrailSectionUrl("");
 
-      let response;
-      if (payload.mode === "jira") {
-        response = await generateFromJira({
-          issue_key: payload.issue_key,
-          test_types: payload.test_types
-        });
-      } else {
-        response = await manualGenerateTest({
-          description: payload.description,
-          acceptance_criteria: payload.acceptance_criteria,
-          attachments_text: payload.attachments_text,
-          test_types: payload.test_types
-        });
-      }
+      const response =
+        payload.mode === "jira"
+          ? await generateFromJira({
+              issue_key: payload.issue_key,
+              test_types: payload.test_types,
+              model_id: payload.model_id
+            })
+          : await manualGenerateTest({
+              description: payload.description,
+              acceptance_criteria: payload.acceptance_criteria,
+              custom_prompt: payload.custom_prompt,
+              attachments_text: payload.attachments_text,
+              attachment_files: payload.attachment_files,
+              test_types: payload.test_types,
+              model_id: payload.model_id
+            });
 
       setIssueKey(response.issue_key || "");
       setSourceData(response.source_data || null);
-      setTestCases(response.test_cases || []);
-      setPreviewReady(false);
+      const generatedCases = response.test_cases || [];
+      setTestCases(generatedCases);
+      setReviewedTestCases(generatedCases);
+      setModelUsed(response.model_used || "");
+      addToast("Test cases generated successfully.", "success");
     } catch (err) {
-      const apiMessage = err?.response?.data?.error || err.message || "Request failed";
-      setError(apiMessage);
+      const message = err?.response?.data?.error || err.message || "Request failed";
       setTestCases([]);
+      setReviewedTestCases([]);
+      addToast(message, "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePreview = async (jiraIssueKey) => {
+  const handleExport = async (format) => {
     try {
-      setPreviewLoading(true);
-      setError("");
-      setTestrailMessage("");
-      setTestrailError("");
-      setTestrailLinks([]);
-      setTestrailSectionUrl("");
-      const response = await previewJira({ issue_key: jiraIssueKey });
-      setIssueKey(response.issue_key || jiraIssueKey);
-      setSourceData(response.source_data || null);
-      setTestCases([]);
-      setPreviewReady(true);
+      setExportLoading(true);
+      if (reviewedTestCases.length) {
+        await submitReviewedTestCases(reviewedTestCases);
+      }
+      const formatsToExport = format === "all" ? ["excel", "pdf", "gherkin", "plain"] : [format];
+
+      for (const exportFormat of formatsToExport) {
+        const { blob, filename } = await exportTestCases(exportFormat);
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = filename || `generated_test_cases.${exportFormat}`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(blobUrl);
+      }
+      addToast(`Exported ${format === "all" ? "all formats" : format.toUpperCase()} successfully.`, "success");
     } catch (err) {
-      const apiMessage = err?.response?.data?.error || err.message || "Preview failed";
-      setError(apiMessage);
-      setIssueKey("");
-      setTestCases([]);
-      setPreviewReady(false);
+      let message = err?.message || "Export failed";
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const parsed = JSON.parse(text);
+          message = parsed?.error || message;
+        } catch {
+          message = message || "Export failed";
+        }
+      } else if (err?.response?.data?.error) {
+        message = err.response.data.error;
+      }
+      addToast(message, "error");
     } finally {
-      setPreviewLoading(false);
+      setExportLoading(false);
     }
   };
 
-  const handlePushToTestRail = async () => {
+  const handlePushToTestRail = async (repositoryMode, config = {}) => {
     try {
       setPushLoading(true);
-      setTestrailMessage("");
-      setTestrailError("");
-      setTestrailLinks([]);
-      setTestrailSectionUrl("");
-
-      const result = await pushToTestRail({});
-      const mode = result?.mode === "live" ? "Live" : "Mock";
+      if (reviewedTestCases.length) {
+        await submitReviewedTestCases(reviewedTestCases);
+      }
+      const result = await pushToTestRail({
+        repository_mode: repositoryMode,
+        project_id: String(config.project_id || "").trim(),
+        suite_id: String(config.suite_id || "").trim(),
+        section_id: String(config.section_id || "").trim()
+      });
       const created = Number(result?.created || 0);
       const links = Array.isArray(result?.results)
         ? result.results
@@ -125,80 +194,143 @@ function Home() {
         : [];
       setTestrailLinks(links);
       setTestrailSectionUrl(result?.section_url || "");
-      setTestrailMessage(`${mode} TestRail push completed. ${created} test case(s) created.`);
+      addToast(`Push completed: ${created} case(s) created.`, "success");
     } catch (err) {
-      const apiMessage = err?.response?.data?.error || err.message || "TestRail push failed";
-      setTestrailError(apiMessage);
+      const message = err?.response?.data?.error || err.message || "TestRail push failed";
       setTestrailLinks([]);
       setTestrailSectionUrl("");
+      addToast(message, "error");
     } finally {
       setPushLoading(false);
     }
   };
 
+  const handleGenerateLocators = async (payload) => {
+    try {
+      setLocatorsLoading(true);
+      const response = await generateLocators(payload);
+      setLocatorResult({
+        locators: response?.locators || [],
+        test_template: response?.test_template || ""
+      });
+      setModelUsed(response?.model_used || "");
+      setLocatorLanguage(payload.language);
+      addToast("Locators generated successfully.", "success");
+    } catch (err) {
+      const message = err?.response?.data?.error || err.message || "Locator generation failed";
+      addToast(message, "error");
+    } finally {
+      setLocatorsLoading(false);
+    }
+  };
+
+  const handleThemeToggle = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    window.localStorage.setItem(THEME_KEY, nextTheme);
+  };
+
+  const handleTestRailConfigChange = (field, value) => {
+    setTestRailConfig((prev) => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleTestCasesChange = (cases) => {
+    setReviewedTestCases(Array.isArray(cases) ? cases : []);
+  };
+
   return (
-    <main className="container">
-      <header className="hero">
-        <div className="hero-top">
-          <div>
-            <h1>Jira to Test Case Generator</h1>
-            <p>
-              Convert Jira ticket content into structured, ready-to-execute QA test cases.
-            </p>
-          </div>
-          <button type="button" className="btn ghost small" onClick={handleThemeToggle}>
-            {theme === "dark" ? "Switch to Light" : "Switch to Dark"}
-          </button>
-        </div>
-      </header>
+    <main className="app-shell">
+      <LoadingOverlay show={loading || exportLoading || pushLoading || locatorsLoading} label="Processing request..." />
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
 
-      <JiraForm
-        onSubmit={handleSubmit}
-        onPreview={handlePreview}
-        loading={loading}
-        previewLoading={previewLoading}
-      />
-
-      {error ? <div className="error">{error}</div> : null}
-      {issueKey && testCases.length ? (
-        <div className="hint">Last generated for: {issueKey}</div>
-      ) : null}
-      {issueKey && previewReady && !testCases.length ? (
-        <div className="hint">
-          {`Preview loaded for: ${issueKey}. Verify attachments, then click Generate.`}
+      <nav className="top-nav">
+        <div className="brand-wrap">
+          <h1>QA Automation Suite</h1>
+          <p>Fetch Issues -&gt; Generate Intelligent Test Cases -&gt; Push to TestRail</p>
         </div>
-      ) : null}
+        <button type="button" className="btn ghost small theme-toggle" onClick={handleThemeToggle}>
+          {theme === "dark" ? "Light Mode" : "Dark Mode"}
+        </button>
+      </nav>
 
-      <IssueDataPanel sourceData={sourceData} />
-      <ExportButtons
-        disabled={!testCases.length}
-        onPushToTestRail={handlePushToTestRail}
-        pushLoading={pushLoading}
-      />
-      {testrailMessage ? <div className="success">{testrailMessage}</div> : null}
-      {testrailError ? <div className="error">{testrailError}</div> : null}
-      {testrailLinks.length || testrailSectionUrl ? (
-        <div className="panel testrail-links-panel">
-          <h3>Open In TestRail</h3>
-          {testrailSectionUrl ? (
-            <div className="testrail-actions">
-              <a className="btn secondary" href={testrailSectionUrl} target="_blank" rel="noreferrer">
-                Open TestRail Section
-              </a>
-            </div>
-          ) : null}
-          <ul className="testrail-links-list">
-            {testrailLinks.map((item) => (
-              <li key={`${item.id}-${item.url}`}>
-                <a className="testrail-link" href={item.url} target="_blank" rel="noreferrer">
-                  {`C${item.id}: ${item.title}`}
-                </a>
-              </li>
-            ))}
-          </ul>
+      <section className="workspace">
+        <div className="tabs">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={`tab-btn ${activeTab === tab.id ? "active" : ""}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-      ) : null}
-      <TestCaseTable testCases={testCases} />
+
+        {activeTab === "locators" ? (
+          <>
+            <LocatorForm
+              onSubmit={handleGenerateLocators}
+              loading={locatorsLoading}
+              models={models}
+              defaultModelId={defaultModelId}
+              taskContext="locator_generation"
+            />
+            {modelUsed ? <div className="info-chip">Model used: {modelUsed}</div> : null}
+            <LocatorResults data={locatorResult} language={locatorLanguage} />
+          </>
+        ) : (
+          <>
+            <JiraForm
+              mode={activeTab}
+              onSubmit={handleSubmit}
+              loading={loading}
+              models={models}
+              defaultModelId={defaultModelId}
+              taskContext="test_case_generation"
+            />
+            {issueKey && testCases.length ? <div className="info-chip">Last generated for: {issueKey}</div> : null}
+            {modelUsed ? <div className="info-chip">Model used: {modelUsed}</div> : null}
+            <IssueDataPanel sourceData={sourceData} />
+            <ExportButtons
+              disabled={!exportableCount}
+              onPushToTestRail={handlePushToTestRail}
+              pushLoading={pushLoading}
+              onExport={handleExport}
+              exportLoading={exportLoading}
+              testRailConfig={testRailConfig}
+              onTestRailConfigChange={handleTestRailConfigChange}
+            />
+            {(testrailLinks.length > 0 || testrailSectionUrl) && (
+              <div className="card">
+                <h3 className="section-title">Open In TestRail</h3>
+                {testrailSectionUrl ? (
+                  <div className="inline">
+                    <a className="btn secondary" href={testrailSectionUrl} target="_blank" rel="noreferrer">
+                      Open TestRail Section
+                    </a>
+                  </div>
+                ) : null}
+                {testrailLinks.length ? (
+                  <ul className="testrail-links-list">
+                    {testrailLinks.map((item) => (
+                      <li key={`${item.id}-${item.url}`}>
+                        <a className="testrail-link" href={item.url} target="_blank" rel="noreferrer">
+                          {`C${item.id}: ${item.title}`}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            )}
+            <TestCaseTable testCases={reviewedTestCases} onChange={handleTestCasesChange} />
+          </>
+        )}
+      </section>
     </main>
   );
 }
