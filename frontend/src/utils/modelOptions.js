@@ -16,25 +16,25 @@ const RECOMMENDATIONS = {
   test_case_generation: {
     title: "Recommended for Test Case Generation *",
     ids: [
-      "openrouter:meta-llama/llama-3-70b-instruct",
-      "openrouter:mistralai/mixtral-8x7b-instruct",
-      "openrouter:deepseek/deepseek-chat",
+      "claude-3-7-sonnet",
+      "openai-gpt-4.1-mini",
+      "gemini-2.5-flash",
     ],
   },
   locator_generation: {
     title: "Recommended for Locator Generation *",
     ids: [
-      "openrouter:deepseek/deepseek-chat",
-      "openrouter:deepseek/deepseek-coder",
-      "openrouter:meta-llama/llama-3-70b-instruct",
+      "openai-gpt-4.1-mini",
+      "claude-3-7-sonnet",
+      "gemini-2.5-flash",
     ],
   },
   automation_templates: {
     title: "Recommended for Automation Templates *",
     ids: [
-      "openrouter:deepseek/deepseek-coder",
-      "openrouter:meta-llama/llama-3-70b-instruct",
-      "openrouter:mistralai/mixtral-8x7b-instruct",
+      "openai-gpt-4.1-mini",
+      "claude-3-7-sonnet",
+      "gemini-2.5-flash",
     ],
   },
 };

@@ -34,6 +34,7 @@ function Home() {
   const [sourceData, setSourceData] = useState(null);
   const [testCases, setTestCases] = useState([]);
   const [reviewedTestCases, setReviewedTestCases] = useState([]);
+  const [hasPendingEdits, setHasPendingEdits] = useState(false);
   const [models, setModels] = useState([]);
   const [defaultModelId, setDefaultModelId] = useState("gemini-2.5-flash");
   const [modelUsed, setModelUsed] = useState("");
@@ -119,12 +120,14 @@ function Home() {
       const generatedCases = response.test_cases || [];
       setTestCases(generatedCases);
       setReviewedTestCases(generatedCases);
+      setHasPendingEdits(false);
       setModelUsed(response.model_used || "");
       addToast("Test cases generated successfully.", "success");
     } catch (err) {
       const message = err?.response?.data?.error || err.message || "Request failed";
       setTestCases([]);
       setReviewedTestCases([]);
+      setHasPendingEdits(false);
       addToast(message, "error");
     } finally {
       setLoading(false);
@@ -296,7 +299,7 @@ function Home() {
             {modelUsed ? <div className="info-chip">Model used: {modelUsed}</div> : null}
             <IssueDataPanel sourceData={sourceData} />
             <ExportButtons
-              disabled={!exportableCount}
+              disabled={!exportableCount || hasPendingEdits}
               onPushToTestRail={handlePushToTestRail}
               pushLoading={pushLoading}
               onExport={handleExport}
@@ -327,7 +330,12 @@ function Home() {
                 ) : null}
               </div>
             )}
-            <TestCaseTable testCases={reviewedTestCases} onChange={handleTestCasesChange} />
+            {hasPendingEdits ? <div className="info-chip">Save changes before export or TestRail push.</div> : null}
+            <TestCaseTable
+              testCases={reviewedTestCases}
+              onSave={handleTestCasesChange}
+              onDirtyChange={setHasPendingEdits}
+            />
           </>
         )}
       </section>
