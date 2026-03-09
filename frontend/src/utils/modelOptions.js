@@ -8,8 +8,6 @@ const FALLBACK_MODELS = [
   { id: "openrouter:meta-llama/llama-3-70b-instruct", label: "OpenRouter - Llama 3 70B", available: false },
   { id: "openrouter:mistralai/mixtral-8x7b-instruct", label: "OpenRouter - Mixtral 8x7B", available: false },
   { id: "openrouter:mistralai/mistral-7b-instruct", label: "OpenRouter - Mistral 7B", available: false },
-  { id: "llama-local", label: "Local Llama (GGUF)", available: false },
-  { id: "fallback-rule", label: "Rule-based Fallback", available: true },
 ];
 
 const RECOMMENDATIONS = {

@@ -182,6 +182,124 @@ Backend default: `http://localhost:5000`
 
 Frontend default: `http://localhost:5173`
 
+## Environment Templates
+
+Use templates only, and never commit real keys/tokens.
+
+### Backend `.env` template
+
+```env
+FLASK_ENV=development
+FLASK_DEBUG=true
+SECRET_KEY=your_secret_key
+
+JIRA_BASE_URL=https://your-domain.atlassian.net
+JIRA_USERNAME=your-jira-email@example.com
+JIRA_API_TOKEN=your-jira-api-token
+
+CORS_ORIGINS=http://localhost:5173
+EXPORT_DIR=exports
+
+LLM_PROVIDER=auto
+LLM_DEFAULT_MODEL_ID=gemini-2.5-flash
+LLM_MODEL_PATH=
+LLM_N_CTX=4096
+LLM_MAX_TOKENS=1200
+LLM_TEMPERATURE=0.1
+LLM_TIMEOUT_SECONDS=60
+
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MINI_MODEL=gemini-2.0-flash-lite
+GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_BASE_URL=your_openai_base_url
+OPENAI_MINI_MODEL=gpt-4.1-mini
+OPENAI_NANO_MODEL=gpt-4.1-nano
+OPENAI_4O_MINI_MODEL=gpt-4o-mini
+
+ANTHROPIC_API_KEY=your_anthropic_api_key
+ANTHROPIC_BASE_URL=your_anthropic_base_url
+CLAUDE_SONNET_MODEL=claude-3-7-sonnet-latest
+CLAUDE_HAIKU_MODEL=claude-3-5-haiku-latest
+
+OPENROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_BASE_URL=your_openrouter_base_url
+
+TESTRAIL_BASE_URL=your_testrail_base_url
+TESTRAIL_USERNAME=your_testrail_username
+TESTRAIL_API_KEY=your_testrail_api_key
+TESTRAIL_PASSWORD=your_testrail_password
+TESTRAIL_PROJECT_ID=your_testrail_project_id
+TESTRAIL_SUITE_ID=your_testrail_suite_id
+TESTRAIL_SECTION_ID=your_testrail_section_id
+EMBEDDING_MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
+```
+
+### Knowledge Base Files (Mandatory)
+
+The app injects these files into prompts and treats them as mandatory policy for generation:
+
+- `backend/knowledge/test-cases-knowledge.md` for test case generation
+- `backend/knowledge/weblocator-knowledge.md` for locator generation
+
+To update behavior later, edit/replace these two files directly. No code changes are required.
+
+If either file is missing/empty, generation returns an error.
+
+### Frontend `.env` template
+
+```env
+VITE_API_BASE_URL=http://localhost:5000
+```
+
+## Store API Keys in GitHub Secrets
+
+Do not store real API keys in tracked files. Keep secrets in GitHub repository secrets:
+
+1. Open GitHub repo -> `Settings` -> `Secrets and variables` -> `Actions`.
+2. Add secrets for your backend keys, for example:
+   - `JIRA_BASE_URL`
+   - `JIRA_USERNAME`
+   - `JIRA_API_TOKEN`
+   - `GEMINI_API_KEY`
+   - `OPENAI_API_KEY`
+   - `ANTHROPIC_API_KEY`
+   - `OPENROUTER_API_KEY`
+   - `TESTRAIL_BASE_URL`
+   - `TESTRAIL_USERNAME`
+   - `TESTRAIL_API_KEY`
+3. In GitHub Actions workflow, generate `backend/.env` from secrets at runtime.
+
+Example step:
+
+```yaml
+- name: Create backend .env from GitHub Secrets
+  shell: bash
+  run: |
+    cat > backend/.env << 'EOF'
+    FLASK_ENV=production
+    FLASK_DEBUG=false
+    SECRET_KEY=${{ secrets.SECRET_KEY }}
+    JIRA_BASE_URL=${{ secrets.JIRA_BASE_URL }}
+    JIRA_USERNAME=${{ secrets.JIRA_USERNAME }}
+    JIRA_API_TOKEN=${{ secrets.JIRA_API_TOKEN }}
+    CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}
+    EXPORT_DIR=exports
+    LLM_PROVIDER=auto
+    LLM_DEFAULT_MODEL_ID=gemini-2.5-flash
+    LLM_TIMEOUT_SECONDS=60
+    GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+    OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+    ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+    OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}
+    TESTRAIL_BASE_URL=${{ secrets.TESTRAIL_BASE_URL }}
+    TESTRAIL_USERNAME=${{ secrets.TESTRAIL_USERNAME }}
+    TESTRAIL_API_KEY=${{ secrets.TESTRAIL_API_KEY }}
+    EOF
+```
+
 ## Environment Variables (Backend)
 
 ### Core

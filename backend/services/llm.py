@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 import re
 from typing import Dict, List, Optional
 
@@ -109,9 +108,7 @@ def call_openrouter(model: str, prompt: str) -> str:
 
 class LLMService:
     def __init__(self):
-        self.model = None
         self.provider = Config.LLM_PROVIDER
-        self.model_path = Config.LLM_MODEL_PATH
         self.max_tokens = Config.LLM_MAX_TOKENS
         self.temperature = Config.LLM_TEMPERATURE
         self.n_ctx = Config.LLM_N_CTX
@@ -127,19 +124,51 @@ class LLMService:
         self.openrouter_api_key = Config.OPENROUTER_API_KEY
 
         self.default_model_id = Config.LLM_DEFAULT_MODEL_ID
-        self.last_model_used = "fallback:rule-based"
+        self.last_model_used = ""
 
-        self._load_llama_if_available()
+    @staticmethod
+    def _dedupe(values: List[str]) -> List[str]:
+        seen = set()
+        result = []
+        for value in values:
+            item = str(value or "").strip()
+            if not item or item in seen:
+                continue
+            seen.add(item)
+            result.append(item)
+        return result
 
-    def _load_llama_if_available(self):
-        if not self.model_path or not os.path.exists(self.model_path):
-            return
-        try:
-            from llama_cpp import Llama
+    def _try_gemini_models(self, prompt: str, models: List[str]) -> Optional[str]:
+        for model_name in self._dedupe(models):
+            result = self._generate_with_gemini(prompt, model_name)
+            if result:
+                self.last_model_used = f"gemini:{model_name}"
+                return result
+        return None
 
-            self.model = Llama(model_path=self.model_path, n_ctx=self.n_ctx, verbose=False)
-        except Exception:
-            self.model = None
+    def _try_openai_models(self, prompt: str, models: List[str]) -> Optional[str]:
+        for model_name in self._dedupe(models):
+            result = self._generate_with_openai(prompt, model_name)
+            if result:
+                self.last_model_used = f"openai:{model_name}"
+                return result
+        return None
+
+    def _try_anthropic_models(self, prompt: str, models: List[str]) -> Optional[str]:
+        for model_name in self._dedupe(models):
+            result = self._generate_with_anthropic(prompt, model_name)
+            if result:
+                self.last_model_used = f"anthropic:{model_name}"
+                return result
+        return None
+
+    def _try_openrouter_models(self, prompt: str, models: List[str]) -> Optional[str]:
+        for model_name in self._dedupe(models):
+            result = call_openrouter(model_name, prompt)
+            if result:
+                self.last_model_used = f"openrouter:{model_name}"
+                return result
+        return None
 
     def list_models(self) -> List[Dict]:
         models = [
@@ -167,22 +196,6 @@ class LLMService:
                 "available": bool(self.anthropic_api_key),
                 "requires_api_key": True,
             },
-            {
-                "id": "llama-local",
-                "label": "Local Llama (GGUF)",
-                "provider": "llama",
-                "model_name": self.model_path or "local-gguf",
-                "available": self.model is not None,
-                "requires_api_key": False,
-            },
-            {
-                "id": "fallback-rule",
-                "label": "Rule-based Fallback",
-                "provider": "fallback",
-                "model_name": "deterministic-template",
-                "available": True,
-                "requires_api_key": False,
-            },
         ]
         for option in OPENROUTER_FREE_MODEL_OPTIONS:
             model_name = option["model_name"]
@@ -199,6 +212,11 @@ class LLMService:
         return models
 
     def generate_json(self, prompt: str, seed_payload: Dict, model_id: Optional[str] = None) -> str:
+        if self.provider not in {"auto", "gemini", "openai", "anthropic", "openrouter"}:
+            raise ValueError(
+                "Invalid LLM_PROVIDER. Allowed values: auto, gemini, openai, anthropic, openrouter."
+            )
+
         selected_model_id = (model_id or self.default_model_id or "").strip()
         selected = (
             self._find_model(selected_model_id)
@@ -207,98 +225,83 @@ class LLMService:
         )
 
         if selected and selected.get("provider") == "gemini":
-            result = self._generate_with_gemini(prompt, selected.get("model_name", ""))
+            result = self._try_gemini_models(
+                prompt,
+                [selected.get("model_name", ""), Config.GEMINI_MODEL, Config.GEMINI_MINI_MODEL],
+            )
             if result:
-                self.last_model_used = f'gemini:{selected.get("model_name", "")}'
                 return result
 
         if selected and selected.get("provider") == "openai":
-            result = self._generate_with_openai(prompt, selected.get("model_name", ""))
+            result = self._try_openai_models(
+                prompt,
+                [selected.get("model_name", ""), Config.OPENAI_MINI_MODEL, Config.OPENAI_4O_MINI_MODEL, Config.OPENAI_NANO_MODEL],
+            )
             if result:
-                self.last_model_used = f'openai:{selected.get("model_name", "")}'
                 return result
 
         if selected and selected.get("provider") == "anthropic":
-            result = self._generate_with_anthropic(prompt, selected.get("model_name", ""))
+            result = self._try_anthropic_models(
+                prompt,
+                [selected.get("model_name", ""), Config.CLAUDE_SONNET_MODEL, Config.CLAUDE_HAIKU_MODEL],
+            )
             if result:
-                self.last_model_used = f'anthropic:{selected.get("model_name", "")}'
                 return result
 
         if selected and selected.get("provider") == "openrouter":
-            result = call_openrouter(selected.get("model_name", ""), prompt)
+            result = self._try_openrouter_models(
+                prompt,
+                [selected.get("model_name", "")] + OPENROUTER_FREE_MODELS,
+            )
             if result:
-                self.last_model_used = f'openrouter:{selected.get("model_name", "")}'
-                return result
-            self.last_model_used = "fallback:rule-based"
-            return json.dumps(self._rule_based_generator(seed_payload), ensure_ascii=False)
-
-        if selected and selected.get("provider") == "llama" and self.model is not None:
-            result = self._generate_with_llama(prompt)
-            if result:
-                self.last_model_used = "llama:local"
                 return result
 
         if self.provider == "auto":
             if self.gemini_api_key:
-                result = self._generate_with_gemini(prompt, Config.GEMINI_MODEL)
+                result = self._try_gemini_models(prompt, [Config.GEMINI_MODEL, Config.GEMINI_MINI_MODEL])
                 if result:
-                    self.last_model_used = f"gemini:{Config.GEMINI_MODEL}"
                     return result
             if self.openai_api_key:
-                result = self._generate_with_openai(prompt, Config.OPENAI_MINI_MODEL)
+                result = self._try_openai_models(
+                    prompt, [Config.OPENAI_MINI_MODEL, Config.OPENAI_4O_MINI_MODEL, Config.OPENAI_NANO_MODEL]
+                )
                 if result:
-                    self.last_model_used = f"openai:{Config.OPENAI_MINI_MODEL}"
                     return result
             if self.anthropic_api_key:
-                result = self._generate_with_anthropic(prompt, Config.CLAUDE_SONNET_MODEL)
+                result = self._try_anthropic_models(prompt, [Config.CLAUDE_SONNET_MODEL, Config.CLAUDE_HAIKU_MODEL])
                 if result:
-                    self.last_model_used = f"anthropic:{Config.CLAUDE_SONNET_MODEL}"
                     return result
             if self.openrouter_api_key:
-                result = call_openrouter(OPENROUTER_FREE_MODELS[0], prompt)
+                result = self._try_openrouter_models(prompt, OPENROUTER_FREE_MODELS)
                 if result:
-                    self.last_model_used = f"openrouter:{OPENROUTER_FREE_MODELS[0]}"
-                    return result
-            if self.model is not None:
-                result = self._generate_with_llama(prompt)
-                if result:
-                    self.last_model_used = "llama:local"
                     return result
 
         if self.provider == "gemini":
-            result = self._generate_with_gemini(prompt, Config.GEMINI_MODEL)
+            result = self._try_gemini_models(prompt, [Config.GEMINI_MODEL, Config.GEMINI_MINI_MODEL])
             if result:
-                self.last_model_used = f"gemini:{Config.GEMINI_MODEL}"
                 return result
 
         if self.provider == "openai":
-            result = self._generate_with_openai(prompt, Config.OPENAI_MINI_MODEL)
+            result = self._try_openai_models(
+                prompt, [Config.OPENAI_MINI_MODEL, Config.OPENAI_4O_MINI_MODEL, Config.OPENAI_NANO_MODEL]
+            )
             if result:
-                self.last_model_used = f"openai:{Config.OPENAI_MINI_MODEL}"
                 return result
 
         if self.provider == "anthropic":
-            result = self._generate_with_anthropic(prompt, Config.CLAUDE_SONNET_MODEL)
+            result = self._try_anthropic_models(prompt, [Config.CLAUDE_SONNET_MODEL, Config.CLAUDE_HAIKU_MODEL])
             if result:
-                self.last_model_used = f"anthropic:{Config.CLAUDE_SONNET_MODEL}"
                 return result
 
         if self.provider == "openrouter":
-            result = call_openrouter(OPENROUTER_FREE_MODELS[0], prompt)
+            result = self._try_openrouter_models(prompt, OPENROUTER_FREE_MODELS)
             if result:
-                self.last_model_used = f"openrouter:{OPENROUTER_FREE_MODELS[0]}"
-                return result
-            self.last_model_used = "fallback:rule-based"
-            return json.dumps(self._rule_based_generator(seed_payload), ensure_ascii=False)
-
-        if self.provider == "llama" and self.model is not None:
-            result = self._generate_with_llama(prompt)
-            if result:
-                self.last_model_used = "llama:local"
                 return result
 
-        self.last_model_used = "fallback:rule-based"
-        return json.dumps(self._rule_based_generator(seed_payload), ensure_ascii=False)
+        raise ValueError(
+            "No cloud LLM available for this request. Configure at least one API key "
+            "(Gemini/OpenAI/Anthropic/OpenRouter) and select an available model."
+        )
 
     def _find_model(self, model_id: str) -> Optional[Dict]:
         if not model_id:
@@ -328,21 +331,6 @@ class LLMService:
             "available": True,
             "requires_api_key": True,
         }
-
-    def _generate_with_llama(self, prompt: str) -> str:
-        if self.model is None:
-            return ""
-        try:
-            output = self.model.create_completion(
-                prompt=prompt,
-                max_tokens=self.max_tokens,
-                temperature=self.temperature,
-                stop=["```", "\n\n\n"],
-            )
-            text = output["choices"][0]["text"].strip()
-            return text if text else ""
-        except Exception:
-            return ""
 
     def _generate_with_gemini(self, prompt: str, model_name: str) -> str:
         if not self.gemini_api_key:
@@ -553,8 +541,58 @@ class LLMService:
             },
         ]
 
-        test_template = LLMService._fallback_locator_template(framework, language, custom_prompt)
-        return {"locators": locators, "test_template": test_template}
+        automation_script = LLMService._fallback_locator_template(framework, language, custom_prompt)
+        test_function = LLMService._fallback_test_function(framework, language)
+        return {
+            "locators": locators,
+            "test_function": test_function,
+            "automation_script": automation_script,
+            "test_template": automation_script,
+        }
+
+    @staticmethod
+    def _fallback_test_function(framework: str, language: str) -> str:
+        framework_norm = framework.lower()
+        language_norm = language.lower()
+
+        if framework_norm == "playwright" and language_norm == "typescript":
+            return (
+                "async function loginSmoke(page: Page): Promise<void> {\n"
+                "  await page.locator(\"input[name='username'], #username\").fill('demo');\n"
+                "  await page.locator(\"input[name='password'], #password\").fill('demo-password');\n"
+                "  await page.getByRole('button', { name: /login|sign in|submit/i }).click();\n"
+                "}\n"
+            )
+        if framework_norm == "playwright" and language_norm == "java":
+            return (
+                "private static void loginSmoke(Page page) {\n"
+                "  page.locator(\"input[name='username'], #username\").fill(\"demo\");\n"
+                "  page.locator(\"input[name='password'], #password\").fill(\"demo-password\");\n"
+                "  page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName(\"Sign in\")).click();\n"
+                "}\n"
+            )
+        if framework_norm == "selenium" and language_norm == "java":
+            return (
+                "private static void loginSmoke(WebDriver driver) {\n"
+                "  driver.findElement(By.cssSelector(\"input[name='username'], #username\")).sendKeys(\"demo\");\n"
+                "  driver.findElement(By.cssSelector(\"input[name='password'], #password\")).sendKeys(\"demo-password\");\n"
+                "  driver.findElement(By.cssSelector(\"[data-testid='submit'], button[type='submit']\")).click();\n"
+                "}\n"
+            )
+        if framework_norm == "selenium" and language_norm == "typescript":
+            return (
+                "async function loginSmoke(driver: WebDriver): Promise<void> {\n"
+                "  await driver.findElement(By.css(\"input[name='username'], #username\")).sendKeys('demo');\n"
+                "  await driver.findElement(By.css(\"input[name='password'], #password\")).sendKeys('demo-password');\n"
+                "  await driver.findElement(By.css(\"[data-testid='submit'], button[type='submit']\")).click();\n"
+                "}\n"
+            )
+        return (
+            "def login_smoke(driver) -> None:\n"
+            "    driver.find_element(By.CSS_SELECTOR, \"input[name='username'], #username\").send_keys('demo')\n"
+            "    driver.find_element(By.CSS_SELECTOR, \"input[name='password'], #password\").send_keys('demo-password')\n"
+            "    driver.find_element(By.CSS_SELECTOR, \"[data-testid='submit'], button[type='submit']\").click()\n"
+        )
 
     @staticmethod
     def _fallback_locator_template(framework: str, language: str, custom_prompt: str) -> str:

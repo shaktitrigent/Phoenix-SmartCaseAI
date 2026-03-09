@@ -2,7 +2,12 @@ import json
 from typing import Dict, List
 
 
-def build_generation_prompt(issue_data: Dict, test_types: List[str], semantic_context: List[Dict]) -> str:
+def build_generation_prompt(
+    issue_data: Dict,
+    test_types: List[str],
+    semantic_context: List[Dict],
+    knowledge_text: str,
+) -> str:
     attachment_blob = "\n\n".join(issue_data.get("attachments_text", []))
     semantic_blob = "\n".join([item.get("text", "") for item in semantic_context if item.get("text")])
     custom_prompt = str(issue_data.get("custom_prompt", "")).strip()
@@ -34,11 +39,15 @@ def build_generation_prompt(issue_data: Dict, test_types: List[str], semantic_co
 
     instructions = [
         "You are a senior QA engineer.",
+        "You MUST strictly follow the provided knowledge base policy.",
+        "If user instructions conflict with the knowledge base, follow the knowledge base.",
         "Generate complete and execution-ready test cases.",
         "Cover each requested test type with practical steps and expected outcomes.",
         "Generate detailed test cases using description, acceptance criteria, and additional custom instructions when provided.",
         "Treat attachment text as requirement input; convert relevant attachment details into test conditions and checks.",
         "If attachment text conflicts with description, prioritize explicit acceptance criteria, then attachment text, then description.",
+        "Knowledge base policy (MANDATORY):",
+        knowledge_text,
         "Return STRICT JSON only.",
         "Do not include markdown, comments, or explanations.",
         "Output must match this schema exactly:",
@@ -49,7 +58,7 @@ def build_generation_prompt(issue_data: Dict, test_types: List[str], semantic_co
     return "\n".join(instructions)
 
 
-def build_locator_prompt(dom: str, framework: str, language: str, custom_prompt: str) -> str:
+def build_locator_prompt(dom: str, framework: str, language: str, custom_prompt: str, knowledge_text: str) -> str:
     schema = {
         "locators": [
             {
@@ -59,20 +68,25 @@ def build_locator_prompt(dom: str, framework: str, language: str, custom_prompt:
                 "strategy": "CSS Selector|ID|Name|XPath|Role|Text",
             }
         ],
-        "test_template": "Complete runnable test file as plain text",
+        "test_function": "Core reusable test function/method code as plain text",
+        "automation_script": "Complete runnable automation script/file as plain text",
     }
 
     instructions = [
         "You are a senior QA automation engineer.",
+        "You MUST strictly follow the provided locator knowledge base policy.",
+        "If user instructions conflict with the knowledge base, follow the knowledge base.",
         "Based on the provided DOM, generate reliable, production-ready element locators.",
         "Prefer stable attributes (id, name, data-testid).",
         "Avoid brittle absolute XPath.",
         "Provide alternate locator strategies whenever possible.",
-        "Output a complete runnable test template with imports, setup, and an example test.",
+        "Output both: (1) a reusable test function and (2) a complete runnable automation script.",
         f"Framework: {framework}",
         f"Language: {language}",
         "Custom Instructions:",
         custom_prompt or "(none)",
+        "Locator knowledge base policy (MANDATORY):",
+        knowledge_text,
         "DOM:",
         dom,
         "Return STRICT JSON only matching this schema:",

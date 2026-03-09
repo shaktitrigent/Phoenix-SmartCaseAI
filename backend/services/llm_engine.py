@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 
 from embeddings.vector_store import EmbeddingVectorStore
+from services.knowledge_base import KnowledgeBaseService
 from services.llm import LLMService
 from utils.prompt_builder import build_generation_prompt, build_locator_prompt
 from utils.response_parser import parse_locator_response, parse_test_case_response
@@ -10,6 +11,14 @@ class LLMEngine:
     def __init__(self):
         self.llm = LLMService()
         self.vector_store = EmbeddingVectorStore()
+        self.knowledge_base = KnowledgeBaseService()
+
+    def _ensure_strict_model_used(self):
+        if not str(self.llm.last_model_used or "").strip():
+            raise ValueError(
+                "Strict knowledge mode requires a cloud LLM provider/model. "
+                "Configure an API key (Gemini/OpenAI/Anthropic/OpenRouter)."
+            )
 
     def generate_from_jira_issue(
         self,
@@ -57,13 +66,20 @@ class LLMEngine:
             top_k=3,
         )
 
-        prompt = build_generation_prompt(issue_data, test_types, semantic_context)
+        knowledge_text = self.knowledge_base.get_test_case_knowledge()
+        prompt = build_generation_prompt(
+            issue_data=issue_data,
+            test_types=test_types,
+            semantic_context=semantic_context,
+            knowledge_text=knowledge_text,
+        )
         seed_payload = {
             "summary": summary or "Generated Test Cases",
             "source": "\n".join(searchable_chunks),
             "test_types": test_types,
         }
         raw_response = self.llm.generate_json(prompt, seed_payload, model_id=model_id)
+        self._ensure_strict_model_used()
         cases = parse_test_case_response(raw_response)
 
         final_cases = []
@@ -88,6 +104,7 @@ class LLMEngine:
             framework=framework,
             language=language,
             custom_prompt=custom_prompt,
+            knowledge_text=self.knowledge_base.get_locator_knowledge(),
         )
         seed_payload = {
             "mode": "locator_generation",
@@ -97,9 +114,15 @@ class LLMEngine:
             "custom_prompt": custom_prompt,
         }
         raw_response = self.llm.generate_json(prompt, seed_payload, model_id=model_id)
+        self._ensure_strict_model_used()
         parsed = parse_locator_response(raw_response)
+        automation_script = parsed.get("automation_script", "")
+        test_function = parsed.get("test_function", "") or automation_script
         return {
             "locators": parsed.get("locators", []),
-            "test_template": parsed.get("test_template", ""),
+            "test_function": test_function,
+            "automation_script": automation_script,
+            # Backward compatibility for existing frontend/client consumers.
+            "test_template": automation_script,
             "model_used": self.llm.last_model_used,
         }
