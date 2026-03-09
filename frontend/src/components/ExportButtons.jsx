@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 function ExportButtons({
-  disabled,
+  exportDisabled,
+  pushDisabled,
   onPushToTestRail,
   pushLoading,
   onExport,
@@ -55,7 +56,7 @@ function ExportButtons({
         <div className="export-menu">
           <button
             className="btn secondary"
-            disabled={disabled || exportLoading}
+            disabled={exportDisabled || exportLoading}
             onClick={() => setMenuOpen((prev) => !prev)}
             type="button"
           >
@@ -84,7 +85,7 @@ function ExportButtons({
         <div className="export-menu">
           <button
             className="btn testrail"
-            disabled={disabled || pushLoading}
+            disabled={pushDisabled || pushLoading}
             onClick={() => setTestrailMenuOpen((prev) => !prev)}
             type="button"
           >

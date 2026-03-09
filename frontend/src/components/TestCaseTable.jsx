@@ -1,49 +1,9 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 
 const editableFields = ["title", "preconditions", "expected_result", "test_type", "priority", "steps"];
 
 const timestampNow = () => new Date().toISOString();
 const DIFF_FIELDS = ["title", "preconditions", "expected_result", "test_type", "priority", "steps"];
-const DUPLICATE_THRESHOLD = 0.72;
-
-const normalizeText = (value = "") =>
-  String(value || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-const tokenize = (value = "") => {
-  const normalized = normalizeText(value);
-  if (!normalized) {
-    return [];
-  }
-  return normalized.split(" ").filter(Boolean);
-};
-
-const jaccardSimilarity = (left = "", right = "") => {
-  const a = new Set(tokenize(left));
-  const b = new Set(tokenize(right));
-  if (!a.size || !b.size) {
-    return 0;
-  }
-  let intersection = 0;
-  a.forEach((token) => {
-    if (b.has(token)) {
-      intersection += 1;
-    }
-  });
-  const union = new Set([...a, ...b]).size;
-  return union ? intersection / union : 0;
-};
-
-const caseSignature = (item = {}) =>
-  [
-    item?.title || "",
-    item?.preconditions || "",
-    item?.expected_result || "",
-    Array.isArray(item?.steps) ? item.steps.join(" ") : ""
-  ].join(" ");
 
 const stringifySteps = (steps = []) => (Array.isArray(steps) ? steps.join("\n") : "");
 
@@ -57,12 +17,13 @@ const normalizeCases = (cases = []) =>
     last_edited_by: item?.last_edited_by || ""
   }));
 
-function TestCaseTable({ testCases, onSave, onDirtyChange }) {
+function TestCaseTable({ testCases, onSave, onDirtyChange, selectedCaseIds = [], onSelectionChange }) {
   const [baselineCases, setBaselineCases] = useState([]);
   const [draftCases, setDraftCases] = useState([]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [openDiffRows, setOpenDiffRows] = useState({});
+  const selectAllRef = useRef(null);
 
   useEffect(() => {
     const normalized = normalizeCases(testCases);
@@ -79,24 +40,30 @@ function TestCaseTable({ testCases, onSave, onDirtyChange }) {
     return { edited };
   }, [draftCases]);
 
-  const duplicates = useMemo(() => {
-    const matches = [];
-    for (let i = 0; i < draftCases.length; i += 1) {
-      for (let j = i + 1; j < draftCases.length; j += 1) {
-        const left = draftCases[i];
-        const right = draftCases[j];
-        const score = jaccardSimilarity(caseSignature(left), caseSignature(right));
-        if (score >= DUPLICATE_THRESHOLD) {
-          matches.push({
-            leftId: left?.test_case_id || `#${i + 1}`,
-            rightId: right?.test_case_id || `#${j + 1}`,
-            score
-          });
-        }
-      }
+  const selectedIdSet = useMemo(
+    () => new Set((Array.isArray(selectedCaseIds) ? selectedCaseIds : []).map((item) => String(item).trim()).filter(Boolean)),
+    [selectedCaseIds]
+  );
+
+  const selectableCaseIds = useMemo(
+    () =>
+      draftCases
+        .filter((item) => String(item?.review_status || "approved").toLowerCase() !== "rejected")
+        .map((item) => String(item?.test_case_id || "").trim())
+        .filter(Boolean),
+    [draftCases]
+  );
+
+  const allSelectableSelected =
+    selectableCaseIds.length > 0 && selectableCaseIds.every((id) => selectedIdSet.has(id));
+  const someSelectableSelected =
+    selectableCaseIds.length > 0 && selectableCaseIds.some((id) => selectedIdSet.has(id));
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = !allSelectableSelected && someSelectableSelected;
     }
-    return matches.sort((a, b) => b.score - a.score);
-  }, [draftCases]);
+  }, [allSelectableSelected, someSelectableSelected]);
 
   const updateDraft = (nextCases) => {
     setDraftCases(nextCases);
@@ -218,6 +185,24 @@ function TestCaseTable({ testCases, onSave, onDirtyChange }) {
     }));
   };
 
+  const handleToggleSelectAll = (checked) => {
+    onSelectionChange?.(checked ? selectableCaseIds : []);
+  };
+
+  const handleToggleRowSelection = (testCaseId, checked) => {
+    const normalizedId = String(testCaseId || "").trim();
+    if (!normalizedId) {
+      return;
+    }
+    const next = new Set((Array.isArray(selectedCaseIds) ? selectedCaseIds : []).map((item) => String(item).trim()));
+    if (checked) {
+      next.add(normalizedId);
+    } else {
+      next.delete(normalizedId);
+    }
+    onSelectionChange?.(Array.from(next).filter(Boolean));
+  };
+
   if (!testCases?.length) {
     return (
       <div className="card">
@@ -250,18 +235,6 @@ function TestCaseTable({ testCases, onSave, onDirtyChange }) {
           </>
         )}
       </div>
-      {duplicates.length ? (
-        <div className="duplicate-warning">
-          <strong>Potential duplicate test cases detected:</strong>
-          <ul className="duplicate-list">
-            {duplicates.slice(0, 6).map((item) => (
-              <li key={`${item.leftId}-${item.rightId}`}>
-                {item.leftId} and {item.rightId} are {(item.score * 100).toFixed(0)}% similar
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
       {isEditMode && !hasUnsavedChanges ? (
         <div className="field-muted">Edit mode enabled. Update any field, then click Save Changes.</div>
       ) : null}
@@ -269,6 +242,15 @@ function TestCaseTable({ testCases, onSave, onDirtyChange }) {
         <table>
           <thead>
             <tr>
+              <th className="select-col">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  checked={allSelectableSelected}
+                  onChange={(event) => handleToggleSelectAll(event.target.checked)}
+                  aria-label="Select all exportable test cases"
+                />
+              </th>
               <th>ID</th>
               <th>Title</th>
               <th>Preconditions</th>
@@ -282,12 +264,24 @@ function TestCaseTable({ testCases, onSave, onDirtyChange }) {
           <tbody>
             {draftCases.map((item, caseIndex) => {
               const rowKey = item.test_case_id || `${caseIndex}`;
+              const normalizedTestCaseId = String(item?.test_case_id || "").trim();
+              const isRejected = String(item?.review_status || "approved").toLowerCase() === "rejected";
+              const isRowSelectable = Boolean(normalizedTestCaseId) && !isRejected;
               const diffRows = getDiffRows(caseIndex);
               const showDiff = Boolean(openDiffRows[rowKey]);
-              const colSpan = isEditMode ? 8 : 7;
+              const colSpan = isEditMode ? 9 : 8;
               return (
                 <Fragment key={rowKey}>
                   <tr key={rowKey}>
+                    <td className="select-col">
+                      <input
+                        type="checkbox"
+                        checked={isRowSelectable && selectedIdSet.has(normalizedTestCaseId)}
+                        disabled={!isRowSelectable}
+                        onChange={(event) => handleToggleRowSelection(normalizedTestCaseId, event.target.checked)}
+                        aria-label={`Select ${normalizedTestCaseId || "test case"}`}
+                      />
+                    </td>
                     <td>{item.test_case_id}</td>
                     <td>
                       {isEditMode ? (

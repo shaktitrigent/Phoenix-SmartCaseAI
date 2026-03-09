@@ -522,15 +522,18 @@ def manual_generate():
 
 @app.post("/generate-locators")
 def generate_locators():
-    payload = request.get_json(silent=True) or {}
+    payload = _extract_payload()
     dom = str(payload.get("dom", "")).strip()
     framework = str(payload.get("framework", "")).strip()
     language = str(payload.get("language", "")).strip()
     custom_prompt = str(payload.get("custom_prompt", "")).strip()
     model_id = str(payload.get("model_id", "")).strip() or None
+    uploaded_files = request.files.getlist("attachments") if request.files else []
+    parsed_upload_chunks, _uploaded_attachment_records = _parse_manual_attachments(uploaded_files)
+    uploaded_text = "\n\n".join([chunk for chunk in parsed_upload_chunks if chunk]).strip()
 
-    if not dom:
-        return jsonify({"error": "dom is required"}), 400
+    if not dom and not uploaded_text:
+        return jsonify({"error": "dom or at least one supported attachment is required"}), 400
     if not framework:
         return jsonify({"error": "framework is required"}), 400
     if not language:
@@ -543,8 +546,16 @@ def generate_locators():
     if language_key not in _locator_languages:
         return jsonify({"error": "language must be one of: TypeScript, Java, Python"}), 400
 
+    merged_dom = dom
+    if uploaded_text:
+        merged_dom = (
+            f"{dom}\n\n[Attachment-derived context]\n{uploaded_text}"
+            if dom
+            else f"[Attachment-derived context]\n{uploaded_text}"
+        )
+
     result = llm_engine.generate_locators(
-        dom=dom,
+        dom=merged_dom,
         framework=framework,
         language=language,
         custom_prompt=custom_prompt,
@@ -620,10 +631,39 @@ def push_testrail():
         return jsonify({"error": "No exportable test cases found"}), 404
 
     payload = request.get_json(silent=True) or {}
+    selected_test_case_ids_raw = payload.get("selected_test_case_ids")
     project_id = str(payload.get("project_id", "")).strip() or None
     suite_id = str(payload.get("suite_id", "")).strip() or None
     section_id = str(payload.get("section_id", "")).strip() or None
     repository_mode = str(payload.get("repository_mode", "")).strip() or "single_repository"
+
+    if selected_test_case_ids_raw is not None:
+        if isinstance(selected_test_case_ids_raw, list):
+            selected_test_case_ids = [
+                str(item).strip()
+                for item in selected_test_case_ids_raw
+                if str(item).strip()
+            ]
+        elif isinstance(selected_test_case_ids_raw, str):
+            selected_test_case_ids = [
+                part.strip()
+                for part in selected_test_case_ids_raw.split(",")
+                if part.strip()
+            ]
+        else:
+            return jsonify({"error": "selected_test_case_ids must be a list or comma-separated string"}), 400
+
+        if not selected_test_case_ids:
+            return jsonify({"error": "No selected test cases provided"}), 400
+
+        selected_id_set = set(selected_test_case_ids)
+        cases = [
+            case
+            for case in cases
+            if str(case.get("test_case_id", "")).strip() in selected_id_set
+        ]
+        if not cases:
+            return jsonify({"error": "No matching exportable selected test cases found"}), 404
 
     if repository_mode not in _testrail_repository_modes:
         return (

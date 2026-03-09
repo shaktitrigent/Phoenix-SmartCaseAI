@@ -24,6 +24,12 @@ const TABS = [
 ];
 const THEME_KEY = "qa-automation-suite-theme";
 
+const buildExportableCaseIds = (cases = []) =>
+  (Array.isArray(cases) ? cases : [])
+    .filter((item) => String(item?.review_status || "approved").toLowerCase() !== "rejected")
+    .map((item) => String(item?.test_case_id || "").trim())
+    .filter(Boolean);
+
 function Home() {
   const [activeTab, setActiveTab] = useState("jira");
   const [loading, setLoading] = useState(false);
@@ -43,14 +49,15 @@ function Home() {
   const [toasts, setToasts] = useState([]);
   const [testrailLinks, setTestrailLinks] = useState([]);
   const [testrailSectionUrl, setTestrailSectionUrl] = useState("");
+  const [selectedCaseIds, setSelectedCaseIds] = useState([]);
   const [testRailConfig, setTestRailConfig] = useState({
     project_id: "",
     suite_id: "",
     section_id: ""
   });
-  const exportableCount = reviewedTestCases.filter(
-    (item) => String(item?.review_status || "approved").toLowerCase() !== "rejected"
-  ).length;
+  const exportableCaseIds = buildExportableCaseIds(reviewedTestCases);
+  const exportableCount = exportableCaseIds.length;
+  const selectedExportableCaseIds = exportableCaseIds.filter((id) => selectedCaseIds.includes(id));
   const [theme, setTheme] = useState(() => {
     if (typeof window === "undefined") {
       return "light";
@@ -120,6 +127,7 @@ function Home() {
       const generatedCases = response.test_cases || [];
       setTestCases(generatedCases);
       setReviewedTestCases(generatedCases);
+      setSelectedCaseIds(buildExportableCaseIds(generatedCases));
       setHasPendingEdits(false);
       setModelUsed(response.model_used || "");
       addToast("Test cases generated successfully.", "success");
@@ -127,6 +135,7 @@ function Home() {
       const message = err?.response?.data?.error || err.message || "Request failed";
       setTestCases([]);
       setReviewedTestCases([]);
+      setSelectedCaseIds([]);
       setHasPendingEdits(false);
       addToast(message, "error");
     } finally {
@@ -175,6 +184,10 @@ function Home() {
 
   const handlePushToTestRail = async (repositoryMode, config = {}) => {
     try {
+      if (!selectedExportableCaseIds.length) {
+        addToast("Select at least one test case to push to TestRail.", "error");
+        return;
+      }
       setPushLoading(true);
       if (reviewedTestCases.length) {
         await submitReviewedTestCases(reviewedTestCases);
@@ -183,7 +196,8 @@ function Home() {
         repository_mode: repositoryMode,
         project_id: String(config.project_id || "").trim(),
         suite_id: String(config.suite_id || "").trim(),
-        section_id: String(config.section_id || "").trim()
+        section_id: String(config.section_id || "").trim(),
+        selected_test_case_ids: selectedExportableCaseIds
       });
       const created = Number(result?.created || 0);
       const links = Array.isArray(result?.results)
@@ -214,7 +228,8 @@ function Home() {
       const response = await generateLocators(payload);
       setLocatorResult({
         locators: response?.locators || [],
-        test_template: response?.test_template || ""
+        test_function: response?.test_function || "",
+        automation_script: response?.automation_script || response?.test_template || ""
       });
       setModelUsed(response?.model_used || "");
       setLocatorLanguage(payload.language);
@@ -241,7 +256,14 @@ function Home() {
   };
 
   const handleTestCasesChange = (cases) => {
-    setReviewedTestCases(Array.isArray(cases) ? cases : []);
+    const normalized = Array.isArray(cases) ? cases : [];
+    setReviewedTestCases(normalized);
+    const nextExportableIds = buildExportableCaseIds(normalized);
+    setSelectedCaseIds((prev) => {
+      const prevSet = new Set((Array.isArray(prev) ? prev : []).map((item) => String(item).trim()));
+      const retained = nextExportableIds.filter((id) => prevSet.has(id));
+      return retained.length ? retained : nextExportableIds;
+    });
   };
 
   return (
@@ -299,7 +321,8 @@ function Home() {
             {modelUsed ? <div className="info-chip">Model used: {modelUsed}</div> : null}
             <IssueDataPanel sourceData={sourceData} />
             <ExportButtons
-              disabled={!exportableCount || hasPendingEdits}
+              exportDisabled={!exportableCount || hasPendingEdits}
+              pushDisabled={!selectedExportableCaseIds.length || hasPendingEdits}
               onPushToTestRail={handlePushToTestRail}
               pushLoading={pushLoading}
               onExport={handleExport}
@@ -307,6 +330,11 @@ function Home() {
               testRailConfig={testRailConfig}
               onTestRailConfigChange={handleTestRailConfigChange}
             />
+            {exportableCount ? (
+              <div className="info-chip">
+                Selected for TestRail push: {selectedExportableCaseIds.length} / {exportableCount}
+              </div>
+            ) : null}
             {(testrailLinks.length > 0 || testrailSectionUrl) && (
               <div className="card">
                 <h3 className="section-title">Open In TestRail</h3>
@@ -335,6 +363,8 @@ function Home() {
               testCases={reviewedTestCases}
               onSave={handleTestCasesChange}
               onDirtyChange={setHasPendingEdits}
+              selectedCaseIds={selectedCaseIds}
+              onSelectionChange={setSelectedCaseIds}
             />
           </>
         )}
