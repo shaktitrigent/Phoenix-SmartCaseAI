@@ -62,7 +62,64 @@ export const submitReviewedTestCases = async (testCases = []) => {
 };
 
 export const generateLocators = async (payload) => {
-  const { data } = await api.post("/generate-locators", payload);
+  const files = Array.isArray(payload?.attachment_files) ? payload.attachment_files : [];
+
+  if (files.length) {
+    const formData = new FormData();
+    formData.append("dom", payload.dom || "");
+    formData.append("framework", payload.framework || "");
+    formData.append("language", payload.language || "");
+    formData.append("custom_prompt", payload.custom_prompt || "");
+    formData.append("model_id", payload.model_id || "");
+    files.forEach((file) => formData.append("attachments", file));
+
+    const { data } = await api.post("/generate-locators", formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+    return data;
+  }
+
+  const { attachment_files, ...jsonPayload } = payload || {};
+  const { data } = await api.post("/generate-locators", jsonPayload);
+  return data;
+};
+
+export const getLatestTestCases = async () => {
+  const { data } = await api.get("/testcases/latest");
+  return data;
+};
+
+export const getReviewQueue = async (status = "all") => {
+  const { data } = await api.get("/review-queue", { params: { status } });
+  return data;
+};
+
+export const updateReviewStatus = async ({ test_case_id, review_status, note }) => {
+  const { data } = await api.post("/review-queue/update", {
+    test_case_id,
+    review_status,
+    note
+  });
+  return data;
+};
+
+export const approveAllPending = async () => {
+  const { data } = await api.post("/review-queue/approve-all");
+  return data;
+};
+
+export const getDashboardMetrics = async () => {
+  const { data } = await api.get("/dashboard/metrics");
+  return data;
+};
+
+export const getSettings = async () => {
+  const { data } = await api.get("/settings");
+  return data;
+};
+
+export const updateSettings = async (payload = {}) => {
+  const { data } = await api.put("/settings", payload);
   return data;
 };
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import ExportButtons from "../components/ExportButtons";
 import IssueDataPanel from "../components/IssueDataPanel";
 import JiraForm from "../components/JiraForm";
@@ -18,12 +19,11 @@ import {
 } from "../services/api";
 
 const TABS = [
-  { id: "jira", label: "Jira Issue" },
-  { id: "manual", label: "Manual Input" },
-  { id: "locators", label: "Generate Locators" }
+  { id: "jira", label: "🎯 Jira Issue" },
+  { id: "manual", label: "✏️ Manual Input" },
+  { id: "locators", label: "🔎 Locators" }
 ];
-const THEME_KEY = "qa-automation-suite-theme";
-
+const TAB_IDS = new Set(TABS.map((tab) => tab.id));
 const buildExportableCaseIds = (cases = []) =>
   (Array.isArray(cases) ? cases : [])
     .filter((item) => String(item?.review_status || "approved").toLowerCase() !== "rejected")
@@ -31,6 +31,7 @@ const buildExportableCaseIds = (cases = []) =>
     .filter(Boolean);
 
 function Home() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("jira");
   const [loading, setLoading] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
@@ -58,17 +59,6 @@ function Home() {
   const exportableCaseIds = buildExportableCaseIds(reviewedTestCases);
   const exportableCount = exportableCaseIds.length;
   const selectedExportableCaseIds = exportableCaseIds.filter((id) => selectedCaseIds.includes(id));
-  const [theme, setTheme] = useState(() => {
-    if (typeof window === "undefined") {
-      return "light";
-    }
-    const stored = window.localStorage.getItem(THEME_KEY);
-    if (stored === "light" || stored === "dark") {
-      return stored;
-    }
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  });
-
   const addToast = (message, type = "info") => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     setToasts((prev) => [...prev, { id, message, type }]);
@@ -82,8 +72,13 @@ function Home() {
   };
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
+    const tabParam = searchParams.get("tab");
+    if (TAB_IDS.has(tabParam)) {
+      setActiveTab(tabParam);
+    } else {
+      setActiveTab("jira");
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const loadModels = async () => {
@@ -110,6 +105,8 @@ function Home() {
           ? await generateFromJira({
               issue_key: payload.issue_key,
               test_types: payload.test_types,
+              custom_prompt: payload.custom_prompt,
+              include_fields: payload.include_fields,
               model_id: payload.model_id
             })
           : await manualGenerateTest({
@@ -236,16 +233,11 @@ function Home() {
       addToast("Locators generated successfully.", "success");
     } catch (err) {
       const message = err?.response?.data?.error || err.message || "Locator generation failed";
+      setLocatorResult({ locators: [], test_function: "", automation_script: "" });
       addToast(message, "error");
     } finally {
       setLocatorsLoading(false);
     }
-  };
-
-  const handleThemeToggle = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-    window.localStorage.setItem(THEME_KEY, nextTheme);
   };
 
   const handleTestRailConfigChange = (field, value) => {
@@ -266,110 +258,105 @@ function Home() {
     });
   };
 
+  const handleTabChange = (nextTab) => {
+    setActiveTab(nextTab);
+    const params = new URLSearchParams(searchParams);
+    params.set("tab", nextTab);
+    setSearchParams(params, { replace: true });
+  };
+
   return (
-    <main className="app-shell">
+    <div className="pane active">
       <LoadingOverlay show={loading || exportLoading || pushLoading || locatorsLoading} label="Processing request..." />
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
 
-      <nav className="top-nav">
-        <div className="brand-wrap">
-          <h1>QA Automation Suite</h1>
-          <p>Fetch Issues -&gt; Generate Intelligent Test Cases -&gt; Push to TestRail</p>
-        </div>
-        <button type="button" className="btn ghost small theme-toggle" onClick={handleThemeToggle}>
-          {theme === "dark" ? "Light Mode" : "Dark Mode"}
-        </button>
-      </nav>
+      <div className="tabs">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`tab-btn ${activeTab === tab.id ? "active" : ""}`}
+            onClick={() => handleTabChange(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      <section className="workspace">
-        <div className="tabs">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={`tab-btn ${activeTab === tab.id ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === "locators" ? (
-          <>
-            <LocatorForm
-              onSubmit={handleGenerateLocators}
-              loading={locatorsLoading}
-              models={models}
-              defaultModelId={defaultModelId}
-              taskContext="locator_generation"
-            />
-            {modelUsed ? <div className="info-chip">Model used: {modelUsed}</div> : null}
-            <LocatorResults data={locatorResult} language={locatorLanguage} />
-          </>
-        ) : (
-          <>
-            <JiraForm
-              mode={activeTab}
-              onSubmit={handleSubmit}
-              loading={loading}
-              models={models}
-              defaultModelId={defaultModelId}
-              taskContext="test_case_generation"
-            />
-            {issueKey && testCases.length ? <div className="info-chip">Last generated for: {issueKey}</div> : null}
-            {modelUsed ? <div className="info-chip">Model used: {modelUsed}</div> : null}
-            <IssueDataPanel sourceData={sourceData} />
-            <ExportButtons
-              exportDisabled={!exportableCount || hasPendingEdits}
-              pushDisabled={!selectedExportableCaseIds.length || hasPendingEdits}
-              onPushToTestRail={handlePushToTestRail}
-              pushLoading={pushLoading}
-              onExport={handleExport}
-              exportLoading={exportLoading}
-              testRailConfig={testRailConfig}
-              onTestRailConfigChange={handleTestRailConfigChange}
-            />
-            {exportableCount ? (
-              <div className="info-chip">
-                Selected for TestRail push: {selectedExportableCaseIds.length} / {exportableCount}
-              </div>
-            ) : null}
-            {(testrailLinks.length > 0 || testrailSectionUrl) && (
-              <div className="card">
-                <h3 className="section-title">Open In TestRail</h3>
-                {testrailSectionUrl ? (
-                  <div className="inline">
-                    <a className="btn secondary" href={testrailSectionUrl} target="_blank" rel="noreferrer">
-                      Open TestRail Section
-                    </a>
-                  </div>
-                ) : null}
-                {testrailLinks.length ? (
-                  <ul className="testrail-links-list">
-                    {testrailLinks.map((item) => (
-                      <li key={`${item.id}-${item.url}`}>
-                        <a className="testrail-link" href={item.url} target="_blank" rel="noreferrer">
-                          {`C${item.id}: ${item.title}`}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            )}
-            {hasPendingEdits ? <div className="info-chip">Save changes before export or TestRail push.</div> : null}
-            <TestCaseTable
-              testCases={reviewedTestCases}
-              onSave={handleTestCasesChange}
-              onDirtyChange={setHasPendingEdits}
-              selectedCaseIds={selectedCaseIds}
-              onSelectionChange={setSelectedCaseIds}
-            />
-          </>
-        )}
-      </section>
-    </main>
+      {activeTab === "locators" ? (
+        <>
+          <LocatorForm
+            onSubmit={handleGenerateLocators}
+            loading={locatorsLoading}
+            models={models}
+            defaultModelId={defaultModelId}
+            taskContext="locator_generation"
+          />
+          {modelUsed ? <div className="info-chip">Model used: {modelUsed}</div> : null}
+          <LocatorResults data={locatorResult} language={locatorLanguage} />
+        </>
+      ) : (
+        <>
+          <JiraForm
+            mode={activeTab}
+            onSubmit={handleSubmit}
+            loading={loading}
+            models={models}
+            defaultModelId={defaultModelId}
+            taskContext="test_case_generation"
+          />
+          {issueKey && testCases.length ? <div className="info-chip">Last generated for: {issueKey}</div> : null}
+          {modelUsed ? <div className="info-chip">Model used: {modelUsed}</div> : null}
+          <IssueDataPanel sourceData={sourceData} />
+          <ExportButtons
+            exportDisabled={!exportableCount || hasPendingEdits}
+            pushDisabled={!selectedExportableCaseIds.length || hasPendingEdits}
+            onPushToTestRail={handlePushToTestRail}
+            pushLoading={pushLoading}
+            onExport={handleExport}
+            exportLoading={exportLoading}
+            testRailConfig={testRailConfig}
+            onTestRailConfigChange={handleTestRailConfigChange}
+          />
+          {exportableCount ? (
+            <div className="info-chip">
+              Selected for TestRail push: {selectedExportableCaseIds.length} / {exportableCount}
+            </div>
+          ) : null}
+          {(testrailLinks.length > 0 || testrailSectionUrl) && (
+            <div className="card">
+              <h3 className="section-title">Open In TestRail</h3>
+              {testrailSectionUrl ? (
+                <div className="inline">
+                  <a className="btn secondary" href={testrailSectionUrl} target="_blank" rel="noreferrer">
+                    Open TestRail Section
+                  </a>
+                </div>
+              ) : null}
+              {testrailLinks.length ? (
+                <ul className="testrail-links-list">
+                  {testrailLinks.map((item) => (
+                    <li key={`${item.id}-${item.url}`}>
+                      <a className="testrail-link" href={item.url} target="_blank" rel="noreferrer">
+                        {`C${item.id}: ${item.title}`}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          )}
+          {hasPendingEdits ? <div className="info-chip">Save changes before export or TestRail push.</div> : null}
+          <TestCaseTable
+            testCases={reviewedTestCases}
+            onSave={handleTestCasesChange}
+            onDirtyChange={setHasPendingEdits}
+            selectedCaseIds={selectedCaseIds}
+            onSelectionChange={setSelectedCaseIds}
+          />
+        </>
+      )}
+    </div>
   );
 }
 

@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 import requests
 
 from config import Config
+from utils.dom_locator_parser import extract_locators
 
 logger = logging.getLogger(__name__)
 
@@ -519,27 +520,9 @@ class LLMService:
         framework = str(seed_payload.get("framework", "Selenium")).strip() or "Selenium"
         language = str(seed_payload.get("language", "Python")).strip() or "Python"
         custom_prompt = str(seed_payload.get("custom_prompt", "")).strip()
+        dom = str(seed_payload.get("dom", "")).strip()
 
-        locators = [
-            {
-                "element": "Primary action button",
-                "primary_locator": "[data-testid='submit'], button[type='submit']",
-                "alternate_locator": "#submit, button[name='submit']",
-                "strategy": "CSS Selector",
-            },
-            {
-                "element": "Username input",
-                "primary_locator": "input[name='username'], #username",
-                "alternate_locator": "[data-testid='username-input']",
-                "strategy": "CSS Selector",
-            },
-            {
-                "element": "Password input",
-                "primary_locator": "input[name='password'], #password",
-                "alternate_locator": "[data-testid='password-input']",
-                "strategy": "CSS Selector",
-            },
-        ]
+        locators = extract_locators(dom)
 
         automation_script = LLMService._fallback_locator_template(framework, language, custom_prompt)
         test_function = LLMService._fallback_test_function(framework, language)

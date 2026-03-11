@@ -21,7 +21,7 @@ def parse_test_case_response(raw_text: str) -> List[Dict]:
 
 
 def parse_locator_response(raw_text: str) -> Dict:
-    fallback = {"locators": [], "test_template": ""}
+    fallback = {"locators": [], "test_function": "", "automation_script": ""}
     if not raw_text:
         return fallback
 
@@ -51,7 +51,11 @@ def parse_locator_response(raw_text: str) -> Dict:
 
     return {
         "locators": normalized_locators,
-        "test_template": str(payload.get("test_template", "")).strip(),
+        "test_function": str(payload.get("test_function", "")).strip(),
+        "automation_script": (
+            str(payload.get("automation_script", "")).strip()
+            or str(payload.get("test_template", "")).strip()
+        ),
     }
 
 

@@ -6,6 +6,39 @@ const timestampNow = () => new Date().toISOString();
 const DIFF_FIELDS = ["title", "preconditions", "expected_result", "test_type", "priority", "steps"];
 
 const stringifySteps = (steps = []) => (Array.isArray(steps) ? steps.join("\n") : "");
+const normalizeLabel = (value) => String(value || "").trim().toLowerCase();
+const getTypeBadgeClass = (value) => {
+  const normalized = normalizeLabel(value);
+  if (!normalized) {
+    return "type-unknown";
+  }
+  if (normalized.includes("regression")) {
+    return "type-regression";
+  }
+  if (normalized.includes("smoke")) {
+    return "type-smoke";
+  }
+  if (normalized.includes("functional")) {
+    return "type-functional";
+  }
+  return "type-generic";
+};
+const getPriorityBadgeClass = (value) => {
+  const normalized = normalizeLabel(value);
+  if (!normalized) {
+    return "priority-unknown";
+  }
+  if (normalized.includes("high")) {
+    return "priority-high";
+  }
+  if (normalized.includes("medium")) {
+    return "priority-medium";
+  }
+  if (normalized.includes("low")) {
+    return "priority-low";
+  }
+  return "priority-generic";
+};
 
 const normalizeCases = (cases = []) =>
   (Array.isArray(cases) ? cases : []).map((item) => ({
@@ -218,7 +251,9 @@ function TestCaseTable({ testCases, onSave, onDirtyChange, selectedCaseIds = [],
   return (
     <div className="card">
       <div className="inline review-summary">
-        <h3 className="section-title">Generated Test Cases ({draftCases.length})</h3>
+        <h3 className="section-title">
+          Test Cases <span className="table-count">{draftCases.length}</span>
+        </h3>
         <span className="status-pill">Edited: {summary.edited}</span>
         {!isEditMode ? (
           <button type="button" className="btn secondary small" onClick={() => setIsEditMode(true)}>
@@ -239,7 +274,7 @@ function TestCaseTable({ testCases, onSave, onDirtyChange, selectedCaseIds = [],
         <div className="field-muted">Edit mode enabled. Update any field, then click Save Changes.</div>
       ) : null}
       <div className="table-wrap">
-        <table>
+        <table className="data-table">
           <thead>
             <tr>
               <th className="select-col">
@@ -272,7 +307,7 @@ function TestCaseTable({ testCases, onSave, onDirtyChange, selectedCaseIds = [],
               const colSpan = isEditMode ? 9 : 8;
               return (
                 <Fragment key={rowKey}>
-                  <tr key={rowKey}>
+                  <tr key={rowKey} style={{ "--row-index": caseIndex }}>
                     <td className="select-col">
                       <input
                         type="checkbox"
@@ -321,9 +356,12 @@ function TestCaseTable({ testCases, onSave, onDirtyChange, selectedCaseIds = [],
                             {isEditMode ? (
                               <button
                                 type="button"
-                                className="btn ghost small"
+                                className="btn ghost small icon-btn"
+                                data-icon="remove"
                                 onClick={() => removeStep(caseIndex, idx)}
                                 disabled={(item.steps || []).length <= 1}
+                                aria-label="Remove step"
+                                title="Remove step"
                               >
                                 Remove
                               </button>
@@ -332,7 +370,14 @@ function TestCaseTable({ testCases, onSave, onDirtyChange, selectedCaseIds = [],
                         ))}
                       </ol>
                       {isEditMode ? (
-                        <button type="button" className="btn ghost small" onClick={() => addStep(caseIndex)}>
+                        <button
+                          type="button"
+                          className="btn ghost small icon-btn"
+                          data-icon="add"
+                          onClick={() => addStep(caseIndex)}
+                          aria-label="Add step"
+                          title="Add step"
+                        >
                           Add Step
                         </button>
                       ) : null}
@@ -355,7 +400,9 @@ function TestCaseTable({ testCases, onSave, onDirtyChange, selectedCaseIds = [],
                           onChange={(event) => updateField(caseIndex, "test_type", event.target.value)}
                         />
                       ) : (
-                        item.test_type
+                        <span className={`pill type-pill ${getTypeBadgeClass(item.test_type)}`}>
+                          {item.test_type || "Unspecified"}
+                        </span>
                       )}
                     </td>
                     <td>
@@ -365,16 +412,21 @@ function TestCaseTable({ testCases, onSave, onDirtyChange, selectedCaseIds = [],
                           onChange={(event) => updateField(caseIndex, "priority", event.target.value)}
                         />
                       ) : (
-                        item.priority
+                        <span className={`pill priority-pill ${getPriorityBadgeClass(item.priority)}`}>
+                          {item.priority || "Unspecified"}
+                        </span>
                       )}
                     </td>
                     {isEditMode ? (
                       <td>
                         <button
                           type="button"
-                          className="btn ghost small"
+                          className="btn ghost small icon-btn"
+                          data-icon="diff"
                           onClick={() => toggleDiff(rowKey)}
                           disabled={!diffRows.length}
+                          aria-label={showDiff ? "Hide differences" : "View differences"}
+                          title={showDiff ? "Hide differences" : "View differences"}
                         >
                           {showDiff ? "Hide Diff" : "View Diff"}
                         </button>

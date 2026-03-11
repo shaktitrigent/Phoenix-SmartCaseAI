@@ -5,6 +5,7 @@ Production-ready full-stack application to:
 - generate intelligent QA test cases with LLMs,
 - generate automation locators and runnable test templates,
 - review/edit/approve/reject generated test cases,
+- track review queue + dashboard metrics,
 - export outputs,
 - push generated test cases to TestRail.
 
@@ -43,6 +44,7 @@ Production-ready full-stack application to:
 - Review workflow:
   - Inline edit for generated test cases
   - Per-case status: `approved`, `pending`, `rejected`
+  - Review queue UI with bulk approve + reviewer notes
   - Manual edit metadata tracked (`is_edited`, `edited_fields`, `last_edited_at`, `last_edited_by`)
   - Rejected cases are excluded from export and TestRail push
 - Export dropdown:
@@ -63,6 +65,7 @@ Production-ready full-stack application to:
 - Toast notifications
 - Loading overlay
 - Validation states for required fields
+- Dashboard metrics + recent activity log
 
 ## Supported Upload Formats
 
@@ -181,6 +184,11 @@ Backend default: `http://localhost:5000`
    ```
 
 Frontend default: `http://localhost:5173`
+
+### Dev proxy
+
+The Vite dev server proxies API routes to the Flask backend. If you add new endpoints,
+update `frontend/vite.config.js` to include them.
 
 ## Environment Templates
 
@@ -353,6 +361,9 @@ Example step:
 
 - `GET /health`
 - `GET /llm-models`
+- `GET /dashboard/metrics`
+- `GET /testcases/latest`
+- `GET /review-queue?status=all|pending|approved|rejected`
 
 ### Generation
 
@@ -360,6 +371,8 @@ Example step:
 - `POST /manual-generate-test`
 - `POST /generate-locators`
 - `POST /review-testcases`
+- `POST /review-queue/update`
+- `POST /review-queue/approve-all`
 
 ### Exports
 
@@ -381,6 +394,7 @@ Example step:
 
 - `POST /testrail/push`
   - pushes only non-rejected cases
+  - requires TestRail configuration (base URL, username, API key/password, section_id)
 
 ## Review Workflow API
 

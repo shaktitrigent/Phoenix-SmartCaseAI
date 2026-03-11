@@ -80,6 +80,14 @@ class TestRailService:
     def _is_ready_for_live_push(self, section_id: str) -> bool:
         return bool(self.base_url and self.username and self._auth_candidates() and section_id)
 
+    def ready_state(self, section_id: str) -> Dict[str, bool]:
+        return {
+            "base_url": bool(self.base_url),
+            "username": bool(self.username),
+            "auth": bool(self._auth_candidates()),
+            "section_id": bool(section_id),
+        }
+
     def _auth_candidates(self) -> List[tuple]:
         candidates: List[tuple] = []
         if self.api_key:

@@ -50,13 +50,14 @@ function ExportButtons({
   };
 
   return (
-    <div className="card">
+    <div className="card export-card">
       <h3 className="section-title">Export & Publish</h3>
       <div className="inline export-actions" ref={containerRef}>
         <div className="export-menu">
           <button
             className="btn secondary"
             disabled={exportDisabled || exportLoading}
+            data-loading={exportLoading ? "true" : "false"}
             onClick={() => setMenuOpen((prev) => !prev)}
             type="button"
           >
@@ -86,6 +87,7 @@ function ExportButtons({
           <button
             className="btn testrail"
             disabled={pushDisabled || pushLoading}
+            data-loading={pushLoading ? "true" : "false"}
             onClick={() => setTestrailMenuOpen((prev) => !prev)}
             type="button"
           >

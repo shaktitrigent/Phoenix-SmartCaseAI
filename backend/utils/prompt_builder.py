@@ -42,6 +42,7 @@ def build_generation_prompt(
         "You MUST strictly follow the provided knowledge base policy.",
         "If user instructions conflict with the knowledge base, follow the knowledge base.",
         "Generate complete and execution-ready test cases.",
+        "Each test case must include explicit preconditions, 2+ concrete steps, and a clear expected result.",
         "Cover each requested test type with practical steps and expected outcomes.",
         "Generate detailed test cases using description, acceptance criteria, and additional custom instructions when provided.",
         "Treat attachment text as requirement input; convert relevant attachment details into test conditions and checks.",
@@ -58,7 +59,14 @@ def build_generation_prompt(
     return "\n".join(instructions)
 
 
-def build_locator_prompt(dom: str, framework: str, language: str, custom_prompt: str, knowledge_text: str) -> str:
+def build_locator_prompt(
+    dom: str,
+    framework: str,
+    language: str,
+    custom_prompt: str,
+    knowledge_text: str,
+    deterministic_locators: List[Dict],
+) -> str:
     schema = {
         "locators": [
             {
@@ -87,6 +95,8 @@ def build_locator_prompt(dom: str, framework: str, language: str, custom_prompt:
         custom_prompt or "(none)",
         "Locator knowledge base policy (MANDATORY):",
         knowledge_text,
+        "Deterministic locator extraction (from HTML, for reference):",
+        json.dumps(deterministic_locators, ensure_ascii=False),
         "DOM:",
         dom,
         "Return STRICT JSON only matching this schema:",

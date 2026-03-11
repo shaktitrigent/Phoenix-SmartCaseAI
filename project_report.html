@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phoenix SmartCaseAI - Project Report</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #475569;
+      --accent: #1e5eff;
+      --border: #d7e1ef;
+      --ok: #0f8f53;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, #eaf1ff 0%, var(--bg) 55%);
+    }
+
+    .wrap {
+      width: min(1100px, calc(100% - 32px));
+      margin: 24px auto 40px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .hero, .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 8px 22px rgba(24, 67, 142, 0.08);
+    }
+
+    h1, h2, h3 { margin: 0 0 10px; }
+    h1 { font-size: 1.6rem; }
+    h2 { font-size: 1.15rem; color: #1c3870; }
+    h3 { font-size: 1rem; color: #254b94; }
+    p { margin: 0; line-height: 1.55; color: var(--muted); }
+
+    .meta {
+      margin-top: 8px;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    }
+
+    ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+    }
+
+    li { margin-bottom: 6px; }
+
+    .tag {
+      display: inline-block;
+      border: 1px solid #bfd1f7;
+      color: #21448c;
+      background: #edf3ff;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      margin: 0 6px 6px 0;
+    }
+
+    .flow {
+      margin-top: 8px;
+      border-left: 3px solid var(--accent);
+      padding-left: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .ok { color: var(--ok); font-weight: 600; }
+    .muted { color: var(--muted); }
+    .two-col {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+    .table-wrap {
+      margin-top: 10px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+      background: #fff;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+      padding: 10px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+    th {
+      color: #1e3c79;
+      background: #eef4ff;
+      font-weight: 700;
+    }
+    code {
+      background: #f1f5fb;
+      border: 1px solid #dbe4f2;
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.88rem;
+      color: #1d355f;
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <h1>Phoenix SmartCaseAI - Application Report</h1>
+      <p>
+        Phoenix SmartCaseAI is a full-stack QA acceleration platform that converts Jira issues or manual requirements
+        into structured test cases, generates locator strategies and automation templates, supports review workflows,
+        exports test assets, and pushes validated cases to TestRail.
+      </p>
+      <div class="meta">
+        Scope: Problem Context, Objectives, Features, Detailed Functionalities, Architecture, API Surface,
+        Data Flow, Security/Reliability, Tech Stack, Benefits, Limitations, and Future Roadmap
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Executive Summary</h2>
+      <p>
+        Phoenix SmartCaseAI is designed to accelerate software QA operations by reducing the manual cycle required to
+        convert requirements into test artifacts. The system combines requirement ingestion (Jira/manual), AI-assisted
+        generation, human review controls, export utilities, and TestRail publishing into one workflow. It enables QA
+        teams to produce repeatable outputs while keeping reviewers in control of final quality.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Problem Statement</h2>
+      <ul>
+        <li>QA teams spend significant time manually translating requirement text into structured test cases.</li>
+        <li>Test case quality and style can vary between authors, affecting consistency across releases.</li>
+        <li>Artifact handoff to tools like TestRail often requires repetitive formatting and data entry.</li>
+        <li>Locator generation and automation test bootstrap are frequently delayed due to manual DOM analysis.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Project Objectives</h2>
+      <div class="two-col">
+        <div>
+          <h3>Primary</h3>
+          <ul>
+            <li>Generate structured and practical test cases from Jira or manual inputs.</li>
+            <li>Support quick reviewer edits and enforce export/push guardrails.</li>
+            <li>Enable one-click export in multiple QA-friendly formats.</li>
+            <li>Push approved cases to TestRail with configurable repository strategy.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Secondary</h3>
+          <ul>
+            <li>Provide locator intelligence and runnable automation templates from raw DOM.</li>
+            <li>Support multi-provider LLM routing with fallback behavior for reliability.</li>
+            <li>Allow attachment-aware generation for richer test coverage.</li>
+            <li>Keep sensitive credentials strictly backend-side.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Core Features</h2>
+      <div class="grid">
+        <div>
+          <h3>1) Test Case Generation</h3>
+          <ul>
+            <li>Generate from Jira issue keys (single or combined issue references).</li>
+            <li>Generate from manual input (description, acceptance criteria, custom prompt, attachments).</li>
+            <li>Supports test types such as functional, regression, UI, security, performance, create, update, edge.</li>
+            <li>Assigns normalized test case IDs and enforces consistent output structure.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>2) Locator Generation</h3>
+          <ul>
+            <li>Accepts DOM/HTML as input.</li>
+            <li>Produces locator JSON with primary and alternate locator strategies.</li>
+            <li>Outputs runnable automation templates for Selenium/Playwright in Python/Java/TypeScript.</li>
+            <li>Includes model attribution so teams know which provider generated the output.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>3) Review + Publishing</h3>
+          <ul>
+            <li>Inline editing of generated test cases with edit metadata tracking.</li>
+            <li>Review status model: approved / pending / rejected.</li>
+            <li>Rejected cases are excluded from export and TestRail push operations.</li>
+            <li>Supports duplicate-case hints and change-diff visualization in edit mode.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Business Benefits</h2>
+      <ul>
+        <li><span class="ok">Faster QA planning:</span> Reduces manual effort for test design and formatting.</li>
+        <li><span class="ok">Higher coverage:</span> Multi-type generation improves scenario breadth.</li>
+        <li><span class="ok">Better consistency:</span> Standard schema and export formats align QA deliverables.</li>
+        <li><span class="ok">Toolchain integration:</span> Direct push to TestRail supports operational QA workflows.</li>
+        <li><span class="ok">Flexible AI strategy:</span> Supports multiple providers plus fallback generation for resilience.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Functionalities in Detail</h2>
+      <div class="grid">
+        <div>
+          <h3>Input Handling</h3>
+          <ul>
+            <li>Jira issue parsing: summary, description, acceptance criteria, custom fields, attachments.</li>
+            <li>Manual uploads: PDF, DOCX, TXT, CSV, XLSX, XML, JSON, YAML, HTML, and more.</li>
+            <li>Attachment processing with parse status and download status visibility.</li>
+            <li>Attachment open/download proxy with host-level allow checks for safer retrieval.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Generation Engine</h3>
+          <ul>
+            <li>Prompt-builder with strict JSON schema instructions.</li>
+            <li>RAG-style semantic context retrieval using sentence embeddings + FAISS.</li>
+            <li>Provider routing for Gemini, OpenAI, Anthropic, OpenRouter, local Llama, fallback rules.</li>
+            <li>Response parser normalizes and recovers JSON fragments when model output is noisy.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Outputs</h3>
+          <ul>
+            <li>Test case payloads with IDs, steps, priorities, and expected results.</li>
+            <li>Exports: Excel, PDF, Gherkin, plain text, CSV, JSON.</li>
+            <li>TestRail push modes: single repository, baseline mode, multiple test suites.</li>
+            <li>Review pipeline persists current test case snapshot before export/publish actions.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Architecture & Workflow</h2>
+      <div class="flow">
+        User Input (Jira/Manual/DOM) -> React UI -> Flask API -> Jira/Parser/LLM Engine ->
+        Response Parser -> Review Table -> Export or TestRail Push
+      </div>
+      <ul>
+        <li><code>/generate-from-jira</code> and <code>/manual-generate-test</code> produce test cases.</li>
+        <li><code>/generate-locators</code> creates locator sets and automation templates.</li>
+        <li><code>/review-testcases</code> stores reviewed payload for later export/push.</li>
+        <li><code>/export-testcases</code> returns downloadable files in selected format.</li>
+        <li><code>/testrail/push</code> publishes exportable cases to TestRail.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Layered Architecture Breakdown</h2>
+      <div class="two-col">
+        <div>
+          <h3>Presentation Layer (Frontend)</h3>
+          <ul>
+            <li>Tab-based entry points for Jira, Manual, and Locator workflows.</li>
+            <li>State management for loading, model selection, review edits, export controls.</li>
+            <li>Visual feedback: toast stack, loading overlay, status chips, form validations.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Application Layer (Backend API)</h3>
+          <ul>
+            <li>Flask route orchestration and request validation.</li>
+            <li>Service composition for Jira ingestion, parsing, generation, export, and TestRail.</li>
+            <li>Error normalization (401/404/general validation/internal).</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Intelligence Layer (LLM + Retrieval)</h3>
+          <ul>
+            <li>Provider routing with model catalog exposure to frontend.</li>
+            <li>Embedding-based semantic context enrichment for higher relevance prompts.</li>
+            <li>Deterministic fallback generator when provider/model is unavailable.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Integration Layer</h3>
+          <ul>
+            <li>Jira API fetches issue metadata and attachments.</li>
+            <li>TestRail API publishes approved/non-rejected cases.</li>
+            <li>Multi-format export interfaces for downstream QA consumers.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Frontend Tech Stack</h2>
+      <div>
+        <span class="tag">React</span>
+        <span class="tag">Vite</span>
+        <span class="tag">Axios</span>
+        <span class="tag">Vanilla CSS</span>
+        <span class="tag">FormData Uploads</span>
+      </div>
+      <ul>
+        <li>Single-page workflow with tabbed experiences (Jira, Manual Input, Locator Generation).</li>
+        <li>Componentized UI: forms, issue panel, review table, locator results, export/TestRail controls.</li>
+        <li>UX features: loading overlay, toast notifications, dark/light mode persistence.</li>
+        <li>Blob-based file handling for secure in-browser export downloads.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Backend Tech Stack</h2>
+      <div>
+        <span class="tag">Python</span>
+        <span class="tag">Flask</span>
+        <span class="tag">Flask-CORS</span>
+        <span class="tag">Requests</span>
+        <span class="tag">FAISS</span>
+        <span class="tag">Sentence Transformers</span>
+        <span class="tag">Pandas</span>
+        <span class="tag">ReportLab</span>
+        <span class="tag">PyPDF2</span>
+        <span class="tag">python-docx</span>
+      </div>
+      <ul>
+        <li>Service-oriented backend modules for Jira fetch, LLM operations, document parsing, export, and TestRail.</li>
+        <li>Model provider abstraction with robust fallback path when API keys/models are unavailable.</li>
+        <li>Secure attachment proxy checks and structured error handling for API responses.</li>
+        <li>Thread-safe in-memory latest-case store used by review/export/push endpoints.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>External Integrations & Tools</h2>
+      <ul>
+        <li>Jira Cloud REST API for issue metadata and attachments.</li>
+        <li>LLM providers: Gemini, OpenAI, Anthropic, OpenRouter, local Llama runtime.</li>
+        <li>TestRail API v2 for creating and organizing test cases.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>API Endpoint Matrix</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Endpoint</th>
+              <th>Method</th>
+              <th>Purpose</th>
+              <th>Key Inputs</th>
+              <th>Output</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>/health</code></td>
+              <td>GET</td>
+              <td>Backend liveness check</td>
+              <td>None</td>
+              <td>Service status JSON</td>
+            </tr>
+            <tr>
+              <td><code>/llm-models</code></td>
+              <td>GET</td>
+              <td>Expose available model options</td>
+              <td>None</td>
+              <td>Model catalog + default model id</td>
+            </tr>
+            <tr>
+              <td><code>/generate-from-jira</code></td>
+              <td>POST</td>
+              <td>Generate test cases from Jira issue(s)</td>
+              <td>issue_key, test_types, model_id</td>
+              <td>source_data, test_cases, model_used</td>
+            </tr>
+            <tr>
+              <td><code>/manual-generate-test</code></td>
+              <td>POST</td>
+              <td>Generate test cases from manual input/files</td>
+              <td>description/criteria/prompt/files/test_types</td>
+              <td>source_data, test_cases, model_used</td>
+            </tr>
+            <tr>
+              <td><code>/generate-locators</code></td>
+              <td>POST</td>
+              <td>Generate locators + automation template</td>
+              <td>dom, framework, language, model_id</td>
+              <td>locators, test_template, model_used</td>
+            </tr>
+            <tr>
+              <td><code>/review-testcases</code></td>
+              <td>POST</td>
+              <td>Persist reviewed/edited cases</td>
+              <td>test_cases[]</td>
+              <td>stored count, exportable count</td>
+            </tr>
+            <tr>
+              <td><code>/export-testcases</code></td>
+              <td>POST</td>
+              <td>Export reviewed non-rejected test cases</td>
+              <td>format</td>
+              <td>Binary file stream</td>
+            </tr>
+            <tr>
+              <td><code>/testrail/push</code></td>
+              <td>POST</td>
+              <td>Push non-rejected cases to TestRail</td>
+              <td>repository_mode, project/suite/section ids</td>
+              <td>Push report with created item references</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Operational Flow (Detailed)</h2>
+      <ol class="muted">
+        <li>User selects workflow tab and submits input payload with model preference.</li>
+        <li>Frontend validates required fields and invokes corresponding backend API.</li>
+        <li>Backend resolves source content (Jira/manual + attachments).</li>
+        <li>LLM engine enriches context (embedding search) and builds strict JSON prompt.</li>
+        <li>Provider call is executed; response parser normalizes returned JSON into schema.</li>
+        <li>Generated cases are shown in review table; reviewer can edit/compare changes.</li>
+        <li>Reviewed snapshot is posted to backend; rejected cases are excluded downstream.</li>
+        <li>User exports artifacts or pushes approved cases to TestRail.</li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <h2>Security, Reliability, and Quality Controls</h2>
+      <ul>
+        <li>Credentials remain backend-side via environment variables.</li>
+        <li>Attachment proxy validates URL host and scheme before retrieval.</li>
+        <li>Input guards for required fields, allowed test types, file size, framework/language constraints.</li>
+        <li>LLM fallback path ensures output generation continuity during provider outages.</li>
+        <li>Review-stage gating prevents unsaved edits from being exported/pushed.</li>
+        <li>Export/TestRail only process non-rejected cases to reduce operational noise.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Current Limitations</h2>
+      <ul>
+        <li>Latest reviewed cases are stored in memory and may be reset on backend restart.</li>
+        <li>No dedicated persistent database layer for audit/history in current architecture.</li>
+        <li>Attachment parsing quality depends on source file format and extractable text quality.</li>
+        <li>LLM output quality and coverage vary by selected model/provider and prompt context quality.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Suggested Roadmap</h2>
+      <div class="two-col">
+        <div>
+          <h3>Near-term</h3>
+          <ul>
+            <li>Add persistent storage for generation/review history and run metadata.</li>
+            <li>Add explicit approve/reject controls at row level in UI if not already enabled.</li>
+            <li>Add automated regression tests for API contracts and parser behavior.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Mid-term</h3>
+          <ul>
+            <li>Introduce role-based access, audit logs, and enterprise auth integration.</li>
+            <li>Improve semantic retrieval isolation per request to avoid context bleed.</li>
+            <li>Add workflow analytics: generation quality, review effort, and TestRail conversion metrics.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

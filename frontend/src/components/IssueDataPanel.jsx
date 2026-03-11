@@ -47,88 +47,94 @@ function IssueDataPanel({ sourceData }) {
   };
 
   return (
-    <div className="card">
-      <h3 className="section-title">Fetched Jira Data</h3>
-      <div className="field">
-        <label>Issue Key</label>
-        <div className="read-box">{sourceData.issue_key || "-"}</div>
+    <div className="card jira-panel-card">
+      <div className="card-head">
+        <div className="ch-icon">J</div>
+        <h3 className="section-title">Fetched Jira Data</h3>
       </div>
-      <div className="field">
-        <label>Issue Type</label>
-        <div className="read-box">{sourceData.issue_type || "-"}</div>
-      </div>
-      <div className="field">
-        <label>Summary</label>
-        <div className="read-box">{sourceData.summary || "-"}</div>
-      </div>
-      <div className="field">
-        <label>Description</label>
-        <pre className="read-box pre-wrap">{sourceData.description || "-"}</pre>
-      </div>
-      <div className="field">
-        <label>Acceptance Criteria</label>
-        <pre className="read-box pre-wrap">{sourceData.acceptance_criteria || "-"}</pre>
-      </div>
-
-      <div className="field">
-        <label>Attachments ({attachments.length})</label>
-        {!attachments.length ? (
-          <div className="read-box">No attachments found.</div>
-        ) : (
-          <div className="attachments-grid">
-            {attachments.map((item, idx) => (
-              <article
-                key={`${item.source_issue_key || "ISSUE"}-${item.filename || "file"}-${idx}`}
-                className="attachment-card"
-              >
-                <div className="attachment-header">
-                  <strong className="attachment-name">{item.filename || "-"}</strong>
-                  <span className="attachment-issue">{item.source_issue_key || "-"}</span>
-                </div>
-                <div className="attachment-meta">
-                  <span>{item.mime_type || "-"}</span>
-                  <span>{formatBytes(item.size_bytes)}</span>
-                </div>
-                <div className="attachment-status">
-                  <span className="status-pill">Download: {item.download_status || "-"}</span>
-                  <span className="status-pill">Parse: {item.parse_status || "-"}</span>
-                </div>
-                <div className="attachment-actions">
-                  <button
-                    type="button"
-                    className="btn ghost small"
-                    onClick={() => handleOpenAttachment(item)}
-                    disabled={!item.content_url}
-                  >
-                    Open
-                  </button>
-                  <button
-                    type="button"
-                    className="btn ghost small"
-                    onClick={() => handleDownloadAttachment(item)}
-                    disabled={!item.content_url}
-                  >
-                    Download
-                  </button>
-                </div>
-                {item.preview_data_url ? (
-                  <div className="attachment-image-wrap">
-                    <img
-                      className="attachment-image"
-                      src={item.preview_data_url}
-                      alt={item.filename || "Attachment preview"}
-                      loading="lazy"
-                    />
-                  </div>
-                ) : null}
-                <details className="attachment-details">
-                  <summary>{item.preview_data_url ? "Parsed text (if available)" : "Parsed text preview"}</summary>
-                  <pre className="pre-wrap attachment-preview">{item.parsed_text || "-"}</pre>
-                </details>
-              </article>
-            ))}
+      <div className="card-body">
+        <div className="jira-field-grid">
+          <div className="jira-field">
+            <div className="jira-label">Issue Key</div>
+            <div className="jira-value jira-key">{sourceData.issue_key || "-"}</div>
           </div>
-        )}
+          <div className="jira-field">
+            <div className="jira-label">Issue Type</div>
+            <div className="jira-value">
+              <span className="jira-type-pill">{sourceData.issue_type || "-"}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="jira-field">
+          <div className="jira-label">Summary</div>
+          <div className="jira-value">{sourceData.summary || "-"}</div>
+        </div>
+        <div className="jira-field">
+          <div className="jira-label">Description</div>
+          <div className="jira-value pre-wrap">{sourceData.description || "-"}</div>
+        </div>
+        <div className="jira-field">
+          <div className="jira-label">Acceptance Criteria</div>
+          <div className="jira-value jira-muted">{sourceData.acceptance_criteria || "Not specified"}</div>
+        </div>
+
+        <div className="jira-attachments">
+          <div className="jira-label">Attachments ({attachments.length})</div>
+          {!attachments.length ? (
+            <div className="jira-empty">No attachments found.</div>
+          ) : (
+            <div className="attachments-grid">
+              {attachments.map((item, idx) => (
+                <article
+                  key={`${item.source_issue_key || "ISSUE"}-${item.filename || "file"}-${idx}`}
+                  className="attachment-card"
+                >
+                  <div className="attachment-header">
+                    <strong className="attachment-name">{item.filename || "-"}</strong>
+                  </div>
+                  <div className="attachment-meta">
+                    <span>{item.mime_type || "-"}</span>
+                    <span>{formatBytes(item.size_bytes)}</span>
+                    <span>{item.source_issue_key || "-"}</span>
+                  </div>
+                  {item.preview_data_url ? (
+                    <div className="attachment-image-wrap">
+                      <img
+                        className="attachment-image"
+                        src={item.preview_data_url}
+                        alt={item.filename || "Attachment preview"}
+                        loading="lazy"
+                      />
+                    </div>
+                  ) : null}
+                  <div className="attachment-actions">
+                    <button
+                      type="button"
+                      className="btn ghost small"
+                      onClick={() => handleOpenAttachment(item)}
+                      disabled={!item.content_url}
+                    >
+                      Open
+                    </button>
+                    <button
+                      type="button"
+                      className="btn ghost small"
+                      onClick={() => handleDownloadAttachment(item)}
+                      disabled={!item.content_url}
+                    >
+                      Download
+                    </button>
+                  </div>
+                  <details className="attachment-details">
+                    <summary>{item.preview_data_url ? "Parsed text (if available)" : "Parsed text preview"}</summary>
+                    <pre className="pre-wrap attachment-preview">{item.parsed_text || "-"}</pre>
+                  </details>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

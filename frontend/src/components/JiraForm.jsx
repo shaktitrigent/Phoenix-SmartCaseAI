@@ -2,6 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { buildModelSections, getModelOptions } from "../utils/modelOptions";
 
 const ALL_TYPES = ["functional", "regression", "ui", "security", "performance", "create", "update", "edge"];
+const DEFAULT_JIRA_FIELDS = [
+  "summary",
+  "description",
+  "acceptance_criteria",
+  "attachments",
+  "custom_fields",
+  "issue_type"
+];
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const BASE_UPLOAD_FORMATS = [".pdf", ".docx", ".txt", ".png", ".jpg", ".jpeg", ".gif", ".xml", ".csv", ".xlsx"];
 const MORE_UPLOAD_FORMATS = [".json", ".md", ".log", ".yaml", ".yml", ".html", ".htm", ".rtf", ".xls", ".oc"];
@@ -23,6 +31,7 @@ function JiraForm({
   const [isDragActive, setIsDragActive] = useState(false);
   const [fileError, setFileError] = useState("");
   const [testTypes, setTestTypes] = useState(["functional", "regression", "ui"]);
+  const [includeFields, setIncludeFields] = useState(DEFAULT_JIRA_FIELDS);
   const [modelId, setModelId] = useState(defaultModelId || "gemini-2.5-flash");
   const modelOptions = useMemo(() => getModelOptions(models), [models]);
   const modelSections = useMemo(
@@ -45,6 +54,9 @@ function JiraForm({
 
   const toggleTestType = (value) => {
     setTestTypes((prev) => (prev.includes(value) ? prev.filter((type) => type !== value) : [...prev, value]));
+  };
+  const toggleIncludeField = (value) => {
+    setIncludeFields((prev) => (prev.includes(value) ? prev.filter((field) => field !== value) : [...prev, value]));
   };
 
   const isSupportedFile = (name = "") => {
@@ -96,6 +108,7 @@ function JiraForm({
       description: description.trim(),
       acceptance_criteria: acceptanceCriteria.trim(),
       custom_prompt: customPrompt.trim(),
+      include_fields: includeFields,
       attachments_text: "",
       attachment_files: attachmentFiles,
       test_types: testTypes,
@@ -111,16 +124,59 @@ function JiraForm({
     <form className="card" onSubmit={handleSubmit}>
       <h2 className="section-title">{mode === "jira" ? "Generate From Jira Issue" : "Generate From Manual Input"}</h2>
       {mode === "jira" ? (
-        <div className="field">
-          <label>Jira Issue Key</label>
-          <input value={issueKey} onChange={(e) => setIssueKey(e.target.value)} placeholder="PROJ-123" />
-        </div>
+        <>
+          <div className="field">
+            <label>Jira Issue Key</label>
+            <div className="input-with-icon jira-key">
+              <span className="input-icon" aria-hidden="true" />
+              <input
+                className="jira-input"
+                value={issueKey}
+                onChange={(e) => setIssueKey(e.target.value)}
+                placeholder="PROJ-123"
+              />
+            </div>
+          </div>
+          <div className="field">
+            <details className="collapsible prompt-collapsible">
+              <summary>Custom Prompt (Optional)</summary>
+              <textarea
+                rows={4}
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                placeholder="Add any additional instructions for generation."
+              />
+            </details>
+          </div>
+          <div className="field">
+            <label>Jira Fields to Include</label>
+            <details className="multi-select">
+              <summary className="multi-select-summary">
+                {includeFields.length ? includeFields.join(", ") : "Select fields"}
+              </summary>
+              <div className="multi-select-list">
+                {DEFAULT_JIRA_FIELDS.map((field) => (
+                  <label key={field} className="multi-select-item">
+                    <input
+                      type="checkbox"
+                      checked={includeFields.includes(field)}
+                      onChange={() => toggleIncludeField(field)}
+                    />
+                    <span>{field}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
+            {!includeFields.length ? <div className="field-note">Select at least one field.</div> : null}
+          </div>
+        </>
       ) : (
         <>
           <div className="field">
             <label>Description</label>
             <textarea
               rows={5}
+              className="mono-textarea"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Feature description..."
@@ -130,22 +186,36 @@ function JiraForm({
             <label>Acceptance Criteria</label>
             <textarea
               rows={4}
+              className="mono-textarea"
               value={acceptanceCriteria}
               onChange={(e) => setAcceptanceCriteria(e.target.value)}
               placeholder="Given/When/Then or bullet list..."
             />
           </div>
           <div className="field">
-            <label>Custom Prompt (Optional)</label>
-            <textarea
-              rows={4}
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              placeholder="Add any additional instructions for generation."
-            />
+            <details className="collapsible prompt-collapsible">
+              <summary>Custom Prompt (Optional)</summary>
+              <textarea
+                rows={4}
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                placeholder="Add any additional instructions for generation."
+              />
+            </details>
           </div>
           <div className="field">
-            <label>Attachments</label>
+            <label className="label-with-info">
+              <span>Attachments</span>
+              <span className="info-wrap">
+                <span className="info-icon" aria-label="Supported document formats" tabIndex={0}>
+                  i
+                </span>
+                <span className="info-tooltip" role="tooltip">
+                  Supported formats: PDF, DOCX, TXT, PNG, JPG, JPEG, GIF, XML, CSV, XLSX, JSON, MD, LOG, YAML,
+                  YML, HTML, HTM, RTF, XLS, OC
+                </span>
+              </span>
+            </label>
             <div
               className={`dropzone ${isDragActive ? "drag-active" : ""}`}
               onDragOver={(event) => {
@@ -173,11 +243,6 @@ function JiraForm({
                 Upload Files
               </label>
               <p className="dropzone-text">Drag and drop files here, or use Upload Files.</p>
-              <p className="field-muted">Supported: PDF, DOCX, TXT, PNG, JPG, JPEG, GIF, XML, CSV, XLSX</p>
-              <details className="supported-formats-more">
-                <summary>More supported formats</summary>
-                <p className="field-muted">JSON, MD, LOG, YAML, YML, HTML, HTM, RTF, XLS, OC</p>
-              </details>
             </div>
             {fileError ? <div className="field-note">{fileError}</div> : null}
             {attachmentFiles.length ? (
@@ -253,10 +318,10 @@ function JiraForm({
       <div className="inline actions-row">
         <button
           type="submit"
-          className="btn"
+          className="btn primary-cta"
           disabled={
             loading ||
-            (mode === "jira" && !issueKey.trim()) ||
+            (mode === "jira" && (!issueKey.trim() || !includeFields.length)) ||
             (mode === "manual" && !hasManualContent)
           }
         >

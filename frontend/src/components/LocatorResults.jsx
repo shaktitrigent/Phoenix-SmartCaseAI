@@ -16,27 +16,22 @@ function LocatorResults({ data, language }) {
     return "py";
   }, [language]);
 
-  if (!data) {
-    return (
-      <div className="card">
-        <h3 className="section-title">Locator Output</h3>
-        <div className="empty-state">
-          <div className="empty-illustration" />
-          <p>Generated locators and template will appear here.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const locators = Array.isArray(data.locators) ? data.locators : [];
-  const testFunction = String(data.test_function || "");
-  const automationScript = String(data.automation_script || data.test_template || "");
+  const locators = Array.isArray(data?.locators) ? data.locators : [];
+  const testFunction = String(data?.test_function || "");
+  const automationScript = String(data?.automation_script || data?.test_template || "");
 
   const copy = async (text) => {
     if (!text) {
       return;
     }
-    await navigator.clipboard.writeText(text);
+    try {
+      if (!navigator?.clipboard?.writeText) {
+        throw new Error("Clipboard is not available.");
+      }
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      console.error("Copy failed:", err);
+    }
   };
 
   const downloadBlob = (content, filename, type = "text/plain;charset=utf-8") => {
@@ -121,6 +116,18 @@ function LocatorResults({ data, language }) {
     document.addEventListener("click", onDocumentClick);
     return () => document.removeEventListener("click", onDocumentClick);
   }, []);
+
+  if (!data) {
+    return (
+      <div className="card">
+        <h3 className="section-title">Locator Output</h3>
+        <div className="empty-state">
+          <div className="empty-illustration" />
+          <p>Generated locators and template will appear here.</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleFunctionExport = (option) => {
     setFunctionExportOpen(false);

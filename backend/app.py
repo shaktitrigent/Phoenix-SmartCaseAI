@@ -44,6 +44,8 @@ document_parser = DocumentParser()
 
 _latest_cases = []
 _latest_lock = Lock()
+_activity_log = []
+_activity_lock = Lock()
 _manual_upload_max_size_bytes = 10 * 1024 * 1024
 _manual_upload_exts = {
     ".pdf",
@@ -66,7 +68,7 @@ _manual_upload_exts = {
     ".xlsx",
     ".xls",
     ".oc",
-}
+} 
 _testrail_repository_modes = {
     "single_repository",
     "single_repository_with_baseline",
@@ -74,6 +76,30 @@ _testrail_repository_modes = {
 }
 _locator_frameworks = {"selenium", "playwright"}
 _locator_languages = {"typescript", "java", "python"}
+_framework_aliases = {
+    "pw": "playwright",
+    "playwright": "playwright",
+    "selenium": "selenium",
+    "selenium-webdriver": "selenium",
+    "webdriver": "selenium",
+}
+_language_aliases = {
+    "ts": "typescript",
+    "typescript": "typescript",
+    "js": "typescript",
+    "javascript": "typescript",
+    "java": "java",
+    "py": "python",
+    "python": "python",
+}
+_jira_include_fields = {
+    "summary",
+    "description",
+    "acceptance_criteria",
+    "attachments",
+    "custom_fields",
+    "issue_type",
+}
 
 
 def _validate_test_types(test_types):
@@ -106,6 +132,7 @@ def _normalize_reviewed_case(raw_case):
     review_status = str(case.get("review_status", "approved")).strip().lower()
     if review_status not in {"approved", "rejected", "pending"}:
         review_status = "approved"
+    review_note = str(case.get("review_note", "")).strip()
 
     steps = case.get("steps", [])
     if isinstance(steps, list):
@@ -130,6 +157,7 @@ def _normalize_reviewed_case(raw_case):
         "test_type": test_type,
         "priority": priority,
         "review_status": review_status,
+        "review_note": review_note,
         "is_edited": bool(case.get("is_edited", False)),
         "edited_fields": normalized_fields,
         "last_edited_at": str(case.get("last_edited_at", "")).strip(),
@@ -143,6 +171,26 @@ def _read_latest_cases(exportable_only=False):
     if not exportable_only:
         return snapshot
     return [case for case in snapshot if str(case.get("review_status", "approved")).lower() != "rejected"]
+
+
+def _compute_counts(cases):
+    counts = {"total": 0, "pending": 0, "approved": 0, "rejected": 0}
+    for case in cases:
+        counts["total"] += 1
+        status = str(case.get("review_status", "approved")).lower()
+        if status not in counts:
+            status = "approved"
+        counts[status] += 1
+    return counts
+
+
+def _log_activity(message, category="system"):
+    entry = {"message": str(message).strip(), "category": category}
+    if not entry["message"]:
+        return
+    with _activity_lock:
+        _activity_log.insert(0, entry)
+        del _activity_log[50:]
 
 
 def _extract_payload():
@@ -159,6 +207,40 @@ def _extract_test_types(payload):
         values = [part.strip() for part in raw.split(",") if part.strip()]
         return values
     return []
+
+
+def _extract_include_fields(payload):
+    raw = payload.get("include_fields", [])
+    if isinstance(raw, list):
+        values = [str(item).strip().lower() for item in raw if str(item).strip()]
+    elif isinstance(raw, str):
+        values = [part.strip().lower() for part in raw.split(",") if part.strip()]
+    else:
+        values = []
+
+    if not values:
+        return sorted(list(_jira_include_fields))
+    normalized = [value for value in values if value in _jira_include_fields]
+    return normalized or sorted(list(_jira_include_fields))
+
+
+def _apply_include_fields(issue_data, include_fields):
+    selected = set(include_fields or [])
+    filtered = dict(issue_data)
+    if "summary" not in selected:
+        filtered["summary"] = ""
+    if "description" not in selected:
+        filtered["description"] = ""
+    if "acceptance_criteria" not in selected:
+        filtered["acceptance_criteria"] = ""
+    if "issue_type" not in selected:
+        filtered["issue_type"] = ""
+    if "custom_fields" not in selected:
+        filtered["custom_fields"] = {}
+    if "attachments" not in selected:
+        filtered["attachments"] = []
+        filtered["attachments_text"] = []
+    return filtered
 
 
 def _parse_manual_attachments(uploaded_files):
@@ -383,6 +465,7 @@ def generate_from_jira():
     model_id = str(payload.get("model_id", "")).strip() or None
     custom_prompt = str(payload.get("custom_prompt", "")).strip()
     test_types = _extract_test_types(payload)
+    include_fields = _extract_include_fields(payload)
     preview_only = bool(payload.get("preview_only", False))
 
     if not issue_key:
@@ -397,6 +480,16 @@ def generate_from_jira():
     issue_data = jira_service.fetch_issue_details(issue_key=issue_key)
     if custom_prompt:
         issue_data["custom_prompt"] = custom_prompt
+    issue_data_for_llm = _apply_include_fields(issue_data, include_fields)
+
+    if not (
+        issue_data_for_llm.get("summary")
+        or issue_data_for_llm.get("description")
+        or issue_data_for_llm.get("acceptance_criteria")
+        or issue_data_for_llm.get("attachments_text")
+        or custom_prompt
+    ):
+        return jsonify({"error": "Selected fields contain no usable content for generation."}), 400
 
     if preview_only:
         return jsonify(
@@ -408,11 +501,17 @@ def generate_from_jira():
         ), 200
 
     test_cases = llm_engine.generate_from_jira_issue(
-        issue_data,
+        issue_data_for_llm,
         parsed_test_types,
         model_id=model_id,
     )
+    for case in test_cases:
+        case.setdefault("review_status", "pending")
     _store_latest_cases(test_cases)
+    _log_activity(
+        f"Generated {len(test_cases)} test case(s) from {issue_data.get('issue_key', issue_key)}.",
+        category="generation",
+    )
     return jsonify(
         {
             "issue_key": issue_data.get("issue_key", issue_key),
@@ -509,7 +608,13 @@ def manual_generate():
         parsed_test_types,
         model_id=model_id,
     )
+    for case in test_cases:
+        case.setdefault("review_status", "pending")
     _store_latest_cases(test_cases)
+    _log_activity(
+        f"Generated {len(test_cases)} test case(s) from manual input.",
+        category="generation",
+    )
     return jsonify(
         {
             "issue_key": "MANUAL",
@@ -539,8 +644,8 @@ def generate_locators():
     if not language:
         return jsonify({"error": "language is required"}), 400
 
-    framework_key = framework.lower()
-    language_key = language.lower()
+    framework_key = _framework_aliases.get(framework.lower(), framework.lower())
+    language_key = _language_aliases.get(language.lower(), language.lower())
     if framework_key not in _locator_frameworks:
         return jsonify({"error": "framework must be one of: Selenium, Playwright"}), 400
     if language_key not in _locator_languages:
@@ -556,12 +661,108 @@ def generate_locators():
 
     result = llm_engine.generate_locators(
         dom=merged_dom,
-        framework=framework,
-        language=language,
+        framework=framework_key.title(),
+        language=("TypeScript" if language_key == "typescript" else language_key.title()),
         custom_prompt=custom_prompt,
         model_id=model_id,
     )
+    _log_activity("Generated locators from provided DOM.", category="locators")
     return jsonify(result), 200
+
+
+@app.get("/testcases/latest")
+def latest_testcases():
+    cases = _read_latest_cases(exportable_only=False)
+    return jsonify({"counts": _compute_counts(cases), "test_cases": cases}), 200
+
+
+@app.get("/review-queue")
+def review_queue():
+    status = str(request.args.get("status", "all")).strip().lower()
+    cases = _read_latest_cases(exportable_only=False)
+    if status in {"approved", "pending", "rejected"}:
+        cases = [case for case in cases if str(case.get("review_status", "")).lower() == status]
+    counts = _compute_counts(_read_latest_cases(exportable_only=False))
+    counts["all"] = counts["total"]
+    return jsonify({"test_cases": cases, "counts": counts}), 200
+
+
+@app.post("/review-queue/update")
+def review_queue_update():
+    payload = request.get_json(silent=True) or {}
+    test_case_id = str(payload.get("test_case_id", "")).strip()
+    review_status = str(payload.get("review_status", "")).strip().lower()
+    review_note = str(payload.get("note", "")).strip()
+    if not test_case_id:
+        return jsonify({"error": "test_case_id is required"}), 400
+    if review_status not in {"approved", "pending", "rejected"}:
+        return jsonify({"error": "review_status must be approved, pending, or rejected"}), 400
+
+    updated = None
+    with _latest_lock:
+        for idx, case in enumerate(_latest_cases):
+            if str(case.get("test_case_id", "")).strip() == test_case_id:
+                updated = dict(case)
+                updated["review_status"] = review_status
+                updated["review_note"] = review_note
+                _latest_cases[idx] = updated
+                break
+
+    if not updated:
+        return jsonify({"error": "test case not found"}), 404
+
+    _log_activity(f"{test_case_id} marked {review_status}.", category="review")
+    counts = _compute_counts(_read_latest_cases(exportable_only=False))
+    counts["all"] = counts["total"]
+    return jsonify({"updated": updated, "counts": counts}), 200
+
+
+@app.post("/review-queue/approve-all")
+def review_queue_approve_all():
+    updated = 0
+    with _latest_lock:
+        for idx, case in enumerate(_latest_cases):
+            status = str(case.get("review_status", "approved")).lower()
+            if status == "pending":
+                updated_case = dict(case)
+                updated_case["review_status"] = "approved"
+                _latest_cases[idx] = updated_case
+                updated += 1
+    if updated:
+        _log_activity(f"Approved {updated} pending test case(s).", category="review")
+    counts = _compute_counts(_read_latest_cases(exportable_only=False))
+    counts["all"] = counts["total"]
+    return jsonify({"updated": updated, "counts": counts}), 200
+
+
+@app.get("/dashboard/metrics")
+def dashboard_metrics():
+    cases = _read_latest_cases(exportable_only=False)
+    counts = _compute_counts(cases)
+    approval_rate = 0
+    if counts["total"]:
+        approval_rate = round((counts["approved"] / counts["total"]) * 100)
+
+    type_breakdown = {}
+    priority_breakdown = {}
+    for case in cases:
+        ttype = str(case.get("test_type", "unspecified")).lower() or "unspecified"
+        priority = str(case.get("priority", "unspecified")).lower() or "unspecified"
+        type_breakdown[ttype] = type_breakdown.get(ttype, 0) + 1
+        priority_breakdown[priority] = priority_breakdown.get(priority, 0) + 1
+
+    with _activity_lock:
+        recent_activity = list(_activity_log)
+
+    return jsonify(
+        {
+            "counts": counts,
+            "approval_rate": approval_rate,
+            "type_breakdown": type_breakdown,
+            "priority_breakdown": priority_breakdown,
+            "recent_activity": recent_activity,
+        }
+    ), 200
 
 
 @app.post("/export-testcases")
@@ -673,6 +874,21 @@ def push_testrail():
                         "Invalid repository_mode. Allowed: "
                         "single_repository, single_repository_with_baseline, multiple_test_suites"
                     )
+                }
+            ),
+            400,
+        )
+
+    ready = testrail_service.ready_state(section_id or Config.TESTRAIL_SECTION_ID)
+    if not all(ready.values()):
+        return (
+            jsonify(
+                {
+                    "error": (
+                        "TestRail configuration is incomplete. "
+                        "Provide base_url, username, API key/password, and section_id."
+                    ),
+                    "missing": [key for key, value in ready.items() if not value],
                 }
             ),
             400,
