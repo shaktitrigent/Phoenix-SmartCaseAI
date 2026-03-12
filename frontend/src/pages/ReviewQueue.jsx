@@ -37,9 +37,9 @@ function ReviewQueue() {
     setToasts((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const loadQueue = async (filter = "all") => {
+  const loadQueue = async (filter = "all", { silent } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await getReviewQueue(filter);
       const items = Array.isArray(response?.test_cases) ? response.test_cases : [];
       setCases(items);
@@ -55,14 +55,23 @@ function ReviewQueue() {
         return next;
       });
     } catch (err) {
-      addToast(err?.response?.data?.error || err?.message || "Unable to load review queue", "error");
+      if (!silent) {
+        addToast(err?.response?.data?.error || err?.message || "Unable to load review queue", "error");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadQueue(activeFilter);
+    loadQueue(activeFilter, { silent: false });
+  }, [activeFilter]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      loadQueue(activeFilter, { silent: true });
+    }, 15000);
+    return () => window.clearInterval(intervalId);
   }, [activeFilter]);
 
   const toggleRow = (rowKey) => {

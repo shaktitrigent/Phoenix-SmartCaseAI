@@ -7,8 +7,9 @@ from threading import Lock
 from urllib.parse import urlparse
 
 import requests
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
+from werkzeug.exceptions import HTTPException
 
 from config import Config
 from services.export_service import ExportService
@@ -41,6 +42,7 @@ testrail_service = TestRailService(
     default_section_id=Config.TESTRAIL_SECTION_ID,
 )
 document_parser = DocumentParser()
+_frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 
 _latest_cases = []
 _latest_lock = Lock()
@@ -391,6 +393,8 @@ def _export_response_for_format(format_name, cases):
 
 @app.errorhandler(Exception)
 def handle_exception(exc):
+    if isinstance(exc, HTTPException):
+        return jsonify({"error": exc.name, "details": exc.description}), exc.code
     if isinstance(exc, ValueError):
         message = str(exc)
         if "(404)" in message:
@@ -400,6 +404,13 @@ def handle_exception(exc):
         return jsonify({"error": message}), 400
     logger.error("Unhandled error: %s\n%s", exc, traceback.format_exc())
     return jsonify({"error": "Internal server error", "details": str(exc)}), 500
+
+
+@app.get("/")
+def serve_root():
+    if os.path.isdir(_frontend_dist):
+        return send_from_directory(_frontend_dist, "index.html")
+    return jsonify({"error": "Frontend build not found"}), 404
 
 
 @app.get("/health")
@@ -735,6 +746,8 @@ def review_queue_approve_all():
     return jsonify({"updated": updated, "counts": counts}), 200
 
 
+
+
 @app.get("/dashboard/metrics")
 def dashboard_metrics():
     cases = _read_latest_cases(exportable_only=False)
@@ -902,6 +915,17 @@ def push_testrail():
         repository_mode=repository_mode,
     )
     return jsonify(result), 200
+
+
+@app.get("/<path:asset_path>")
+def serve_frontend_assets(asset_path: str):
+    if not os.path.isdir(_frontend_dist):
+        return jsonify({"error": "Not found"}), 404
+
+    requested = os.path.join(_frontend_dist, asset_path)
+    if os.path.isfile(requested):
+        return send_from_directory(_frontend_dist, asset_path)
+    return send_from_directory(_frontend_dist, "index.html")
 
 
 if __name__ == "__main__":

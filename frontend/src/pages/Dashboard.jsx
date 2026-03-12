@@ -35,19 +35,26 @@ function Dashboard() {
     setToasts((prev) => prev.filter((item) => item.id !== id));
   };
 
-  useEffect(() => {
-    const loadMetrics = async () => {
-      try {
-        setLoading(true);
-        const response = await getDashboardMetrics();
-        setMetrics(response || null);
-      } catch (err) {
+  const loadMetrics = async ({ silent } = {}) => {
+    try {
+      if (!silent) setLoading(true);
+      const response = await getDashboardMetrics();
+      setMetrics(response || null);
+    } catch (err) {
+      if (!silent) {
         addToast(err?.response?.data?.error || err?.message || "Unable to load dashboard", "error");
-      } finally {
-        setLoading(false);
       }
-    };
-    loadMetrics();
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMetrics({ silent: false });
+    const intervalId = window.setInterval(() => {
+      loadMetrics({ silent: true });
+    }, 15000);
+    return () => window.clearInterval(intervalId);
   }, []);
 
   const counts = metrics?.counts || { total: 0, approved: 0, pending: 0, rejected: 0 };

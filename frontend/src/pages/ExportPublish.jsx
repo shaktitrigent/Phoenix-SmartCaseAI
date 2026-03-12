@@ -35,17 +35,23 @@ function ExportPublish() {
     setToasts((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const fetchCounts = async () => {
+  const fetchCounts = async ({ silent } = {}) => {
     try {
       const response = await getLatestTestCases();
       setCounts(response?.counts || { total: 0, approved: 0, pending: 0, rejected: 0 });
     } catch (err) {
-      addToast(err?.response?.data?.error || err?.message || "Unable to load summary", "error");
+      if (!silent) {
+        addToast(err?.response?.data?.error || err?.message || "Unable to load summary", "error");
+      }
     }
   };
 
   useEffect(() => {
-    fetchCounts();
+    fetchCounts({ silent: false });
+    const intervalId = window.setInterval(() => {
+      fetchCounts({ silent: true });
+    }, 15000);
+    return () => window.clearInterval(intervalId);
   }, []);
 
   const handleToggleFormat = (formatId) => {
