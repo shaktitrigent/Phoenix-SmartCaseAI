@@ -216,6 +216,14 @@ class LLMService:
                 "available": bool(self.anthropic_api_key),
                 "requires_api_key": True,
             },
+            {
+                "id": "claude-3-5-haiku",
+                "label": "Claude 3.5 Haiku",
+                "provider": "anthropic",
+                "model_name": Config.CLAUDE_HAIKU_MODEL,
+                "available": bool(self.anthropic_api_key),
+                "requires_api_key": True,
+            },
         ]
         for option in OPENROUTER_FREE_MODEL_OPTIONS:
             model_name = option["model_name"]

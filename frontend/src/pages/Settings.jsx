@@ -73,7 +73,12 @@ const MODEL_CHOICES = [
   {
     id: "claude-3-7-sonnet",
     label: "Claude 3.7 Sonnet",
-    desc: "Best for complex edge case generation"
+    desc: "Best for complex edge case generation ? Recommended"
+  },
+  {
+    id: "claude-3-5-haiku",
+    label: "Claude 3.5 Haiku",
+    desc: "Fast, lightweight choice for quick iterations"
   },
   {
     id: "openai-gpt-4.1-mini",

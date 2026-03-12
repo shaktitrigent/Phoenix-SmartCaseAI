@@ -1424,7 +1424,7 @@ select {
 }
 
 .prompt-collapsible summary::after {
-  content: "v";
+  content: "🔽";
   font-size: 0.8rem;
   color: var(--txt3);
 }
