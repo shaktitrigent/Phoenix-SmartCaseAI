@@ -1808,24 +1808,22 @@ select {
 
 .settings-tabs {
   display: flex;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 8px;
   border-bottom: 1px solid var(--border);
-  margin: -22px -22px 0;
-  padding: 10px 14px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+  margin: 0;
+  padding: 12px 18px;
+  background: var(--surface2);
 }
 
 .settings-tab {
-  padding: 10px 16px;
+  padding: 8px 14px;
   cursor: pointer;
   font-size: 0.83rem;
   color: var(--txt2);
-  border-bottom: 2px solid transparent;
+  border: 1px solid transparent;
   transition: 0.15s;
   background: transparent;
-  border-top: none;
-  border-left: none;
-  border-right: none;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -1846,8 +1844,10 @@ select {
 }
 
 .settings-tab.active {
-  color: var(--blue);
-  border-bottom-color: var(--blue);
+  color: var(--txt);
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .settings-card {

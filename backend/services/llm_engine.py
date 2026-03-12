@@ -76,6 +76,7 @@ class LLMEngine:
             knowledge_text=knowledge_text,
         )
         seed_payload = {
+            "mode": "test_case_generation",
             "summary": summary or "Generated Test Cases",
             "source": "\n".join(searchable_chunks),
             "test_types": test_types,

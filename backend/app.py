@@ -462,7 +462,7 @@ def attachment_file():
 def generate_from_jira():
     payload = _extract_payload()
     issue_key = str(payload.get("issue_key", "")).strip()
-    model_id = str(payload.get("model_id", "")).strip() or None
+    model_id = str(payload.get("model_id", "")).strip() or "stepfun/step-3.5-flash:free"
     custom_prompt = str(payload.get("custom_prompt", "")).strip()
     test_types = _extract_test_types(payload)
     include_fields = _extract_include_fields(payload)
@@ -547,7 +547,7 @@ def manual_generate():
     acceptance_criteria = str(payload.get("acceptance_criteria", "")).strip()
     custom_prompt = str(payload.get("custom_prompt", "")).strip()
     manual_attachments_text = str(payload.get("attachments_text", "")).strip()
-    model_id = str(payload.get("model_id", "")).strip() or None
+    model_id = str(payload.get("model_id", "")).strip() or "stepfun/step-3.5-flash:free"
     test_types = _extract_test_types(payload)
     uploaded_files = request.files.getlist("attachments") if request.files else []
     parsed_upload_chunks, uploaded_attachment_records = _parse_manual_attachments(uploaded_files)
@@ -632,7 +632,7 @@ def generate_locators():
     framework = str(payload.get("framework", "")).strip()
     language = str(payload.get("language", "")).strip()
     custom_prompt = str(payload.get("custom_prompt", "")).strip()
-    model_id = str(payload.get("model_id", "")).strip() or None
+    model_id = str(payload.get("model_id", "")).strip() or "qwen/qwen3-coder:free"
     uploaded_files = request.files.getlist("attachments") if request.files else []
     parsed_upload_chunks, _uploaded_attachment_records = _parse_manual_attachments(uploaded_files)
     uploaded_text = "\n\n".join([chunk for chunk in parsed_upload_chunks if chunk]).strip()

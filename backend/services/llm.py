@@ -10,22 +10,24 @@ from utils.dom_locator_parser import extract_locators
 
 logger = logging.getLogger(__name__)
 
+OPENROUTER_TEST_CASE_MODEL = "stepfun/step-3.5-flash:free"
+OPENROUTER_LOCATOR_MODEL = "qwen/qwen3-coder:free"
+OPENROUTER_FALLBACK_MODELS = [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "microsoft/phi-3-medium-128k-instruct:free",
+]
+
 OPENROUTER_FREE_MODELS = [
-    "deepseek/deepseek-chat",
-    "deepseek/deepseek-coder",
-    "meta-llama/llama-3-8b-instruct",
-    "meta-llama/llama-3-70b-instruct",
-    "mistralai/mistral-7b-instruct",
-    "mistralai/mixtral-8x7b-instruct",
+    OPENROUTER_TEST_CASE_MODEL,
+    OPENROUTER_LOCATOR_MODEL,
+    *OPENROUTER_FALLBACK_MODELS,
 ]
 
 OPENROUTER_FREE_MODEL_OPTIONS = [
-    {"model_name": "deepseek/deepseek-chat", "label": "OpenRouter - DeepSeek Chat"},
-    {"model_name": "deepseek/deepseek-coder", "label": "OpenRouter - DeepSeek Coder"},
-    {"model_name": "meta-llama/llama-3-8b-instruct", "label": "OpenRouter - Llama 3 8B"},
-    {"model_name": "meta-llama/llama-3-70b-instruct", "label": "OpenRouter - Llama 3 70B"},
-    {"model_name": "mistralai/mixtral-8x7b-instruct", "label": "OpenRouter - Mixtral 8x7B"},
-    {"model_name": "mistralai/mistral-7b-instruct", "label": "OpenRouter - Mistral 7B"},
+    {"model_name": OPENROUTER_TEST_CASE_MODEL, "label": "OpenRouter - Step-3.5 Flash (Free)"},
+    {"model_name": OPENROUTER_LOCATOR_MODEL, "label": "OpenRouter - Qwen3 Coder (Free)"},
+    {"model_name": OPENROUTER_FALLBACK_MODELS[0], "label": "OpenRouter - Llama 3.3 70B (Free)"},
+    {"model_name": OPENROUTER_FALLBACK_MODELS[1], "label": "OpenRouter - Phi-3 Medium 128K (Free)"},
 ]
 
 
@@ -44,6 +46,8 @@ def call_openrouter(model: str, prompt: str) -> str:
     url = f"{Config.OPENROUTER_BASE_URL}/chat/completions"
     payload = {
         "model": resolved_model,
+        "temperature": Config.LLM_TEMPERATURE,
+        "max_tokens": Config.LLM_MAX_TOKENS,
         "messages": [
             {
                 "role": "user",
@@ -171,6 +175,21 @@ class LLMService:
                 return result
         return None
 
+    @staticmethod
+    def _openrouter_task_model(seed_payload: Dict) -> str:
+        mode = str(seed_payload.get("mode", "")).strip().lower()
+        if mode == "locator_generation":
+            return OPENROUTER_LOCATOR_MODEL
+        return OPENROUTER_TEST_CASE_MODEL
+
+    def _openrouter_model_chain(self, seed_payload: Dict, model_name: str) -> List[str]:
+        primary = str(model_name or "").strip()
+        if not primary:
+            primary = self._openrouter_task_model(seed_payload)
+        if primary not in OPENROUTER_FREE_MODELS:
+            primary = self._openrouter_task_model(seed_payload)
+        return self._dedupe([primary, *OPENROUTER_FALLBACK_MODELS])
+
     def list_models(self) -> List[Dict]:
         models = [
             {
@@ -250,10 +269,8 @@ class LLMService:
                 return result
 
         if selected and selected.get("provider") == "openrouter":
-            result = self._try_openrouter_models(
-                prompt,
-                [selected.get("model_name", "")] + OPENROUTER_FREE_MODELS,
-            )
+            chain = self._openrouter_model_chain(seed_payload, selected.get("model_name", ""))
+            result = self._try_openrouter_models(prompt, chain)
             if result:
                 return result
 
@@ -273,7 +290,8 @@ class LLMService:
                 if result:
                     return result
             if self.openrouter_api_key:
-                result = self._try_openrouter_models(prompt, OPENROUTER_FREE_MODELS)
+                chain = self._openrouter_model_chain(seed_payload, "")
+                result = self._try_openrouter_models(prompt, chain)
                 if result:
                     return result
 
@@ -295,7 +313,8 @@ class LLMService:
                 return result
 
         if self.provider == "openrouter":
-            result = self._try_openrouter_models(prompt, OPENROUTER_FREE_MODELS)
+            chain = self._openrouter_model_chain(seed_payload, selected.get("model_name", "") if selected else "")
+            result = self._try_openrouter_models(prompt, chain)
             if result:
                 return result
 
@@ -315,6 +334,15 @@ class LLMService:
     @staticmethod
     def _parse_provider_model(model_id: str) -> Optional[Dict]:
         value = str(model_id or "").strip()
+        if value in OPENROUTER_FREE_MODELS:
+            return {
+                "id": f"openrouter:{value}",
+                "label": value,
+                "provider": "openrouter",
+                "model_name": value,
+                "available": True,
+                "requires_api_key": True,
+            }
         if ":" not in value:
             return None
         provider, model_name = value.split(":", 1)
