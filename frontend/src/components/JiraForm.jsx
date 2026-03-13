@@ -15,6 +15,62 @@ const BASE_UPLOAD_FORMATS = [".pdf", ".docx", ".txt", ".png", ".jpg", ".jpeg", "
 const MORE_UPLOAD_FORMATS = [".json", ".md", ".log", ".yaml", ".yml", ".html", ".htm", ".rtf", ".xls", ".oc"];
 const SUPPORTED_EXTENSIONS = [...BASE_UPLOAD_FORMATS, ...MORE_UPLOAD_FORMATS];
 
+const ROW_STYLE = {
+  display: "flex",
+  flexDirection: "row",
+  alignItems: "flex-start",
+  gap: "24px",
+  width: "100%",
+  marginTop: "12px",
+  flexWrap: "wrap"
+};
+
+const LLM_COL_STYLE = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
+  flex: "0 0 340px",
+  minWidth: "200px"
+};
+
+const TEST_COL_STYLE = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
+  flex: "1 1 200px",
+  minWidth: "200px"
+};
+
+const LABEL_STYLE = {
+  fontSize: "0.8rem",
+  fontWeight: 600,
+  color: "var(--txt2)",
+  lineHeight: 1.4
+};
+
+const SELECT_STYLE = {
+  height: "42px",
+  minHeight: "42px",
+  margin: 0,
+  background: "var(--surface2)",
+  border: "1px solid var(--border)",
+  borderRadius: "8px",
+  padding: "0 32px 0 14px",
+  color: "var(--txt)",
+  fontSize: "0.85rem",
+  width: "100%",
+  cursor: "pointer",
+  appearance: "none",
+  backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: "right 12px center"
+};
+
+const MULTI_SELECT_STYLE = {
+  minHeight: "42px",
+  margin: 0
+};
+
 function JiraForm({
   mode = "jira",
   onSubmit,
@@ -40,23 +96,19 @@ function JiraForm({
   );
 
   useEffect(() => {
-    if (!models.length) {
-      return;
-    }
+    if (!models.length) return;
     const requested = defaultModelId || "gemini-2.5-flash";
     const exists = modelOptions.some((m) => m.id === requested);
-    if (exists) {
-      setModelId(requested);
-      return;
-    }
+    if (exists) { setModelId(requested); return; }
     setModelId(modelOptions[0].id);
   }, [defaultModelId, modelOptions, models.length]);
 
   const toggleTestType = (value) => {
-    setTestTypes((prev) => (prev.includes(value) ? prev.filter((type) => type !== value) : [...prev, value]));
+    setTestTypes((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]));
   };
+
   const toggleIncludeField = (value) => {
-    setIncludeFields((prev) => (prev.includes(value) ? prev.filter((field) => field !== value) : [...prev, value]));
+    setIncludeFields((prev) => (prev.includes(value) ? prev.filter((f) => f !== value) : [...prev, value]));
   };
 
   const isSupportedFile = (name = "") => {
@@ -66,42 +118,30 @@ function JiraForm({
 
   const addFiles = (files) => {
     const incoming = Array.from(files || []);
-    if (!incoming.length) {
-      return;
-    }
-
+    if (!incoming.length) return;
     const validFiles = [];
     const errors = [];
-
     incoming.forEach((file) => {
-      if (!isSupportedFile(file.name)) {
-        errors.push(`${file.name}: unsupported format`);
-        return;
-      }
-      if (file.size > MAX_FILE_SIZE_BYTES) {
-        errors.push(`${file.name}: exceeds 10MB`);
-        return;
-      }
+      if (!isSupportedFile(file.name)) { errors.push(`${file.name}: unsupported format`); return; }
+      if (file.size > MAX_FILE_SIZE_BYTES) { errors.push(`${file.name}: exceeds 10MB`); return; }
       validFiles.push(file);
     });
-
     setAttachmentFiles((prev) => {
       const keys = new Set(prev.map((f) => `${f.name}-${f.size}-${f.lastModified}`));
-      const deduped = validFiles.filter((f) => !keys.has(`${f.name}-${f.size}-${f.lastModified}`));
-      return [...prev, ...deduped];
+      return [...prev, ...validFiles.filter((f) => !keys.has(`${f.name}-${f.size}-${f.lastModified}`))];
     });
     setFileError(errors.length ? errors.join("; ") : "");
   };
 
   const removeFile = (target) => {
-    setAttachmentFiles((prev) => prev.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== target));
+    setAttachmentFiles((prev) =>
+      prev.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== target)
+    );
   };
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    if (!testTypes.length) {
-      return;
-    }
+    if (!testTypes.length) return;
     onSubmit({
       mode,
       issue_key: issueKey.trim(),
@@ -122,7 +162,10 @@ function JiraForm({
 
   return (
     <form className="card" onSubmit={handleSubmit}>
-      <h2 className="section-title">{mode === "jira" ? "Generate From Jira Issue" : "Generate From Manual Input"}</h2>
+      <h2 className="section-title">
+        {mode === "jira" ? "Generate From Jira Issue" : "Generate From Manual Input"}
+      </h2>
+
       {mode === "jira" ? (
         <>
           <div className="field">
@@ -207,9 +250,7 @@ function JiraForm({
             <label className="label-with-info">
               <span>Attachments</span>
               <span className="info-wrap">
-                <span className="info-icon" aria-label="Supported document formats" tabIndex={0}>
-                  i
-                </span>
+                <span className="info-icon" aria-label="Supported document formats" tabIndex={0}>i</span>
                 <span className="info-tooltip" role="tooltip">
                   Supported formats: PDF, DOCX, TXT, PNG, JPG, JPEG, GIF, XML, CSV, XLSX, JSON, MD, LOG, YAML,
                   YML, HTML, HTM, RTF, XLS, OC
@@ -218,26 +259,16 @@ function JiraForm({
             </label>
             <div
               className={`dropzone ${isDragActive ? "drag-active" : ""}`}
-              onDragOver={(event) => {
-                event.preventDefault();
-                setIsDragActive(true);
-              }}
-              onDragLeave={(event) => {
-                event.preventDefault();
-                setIsDragActive(false);
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                setIsDragActive(false);
-                addFiles(event.dataTransfer?.files);
-              }}
+              onDragOver={(e) => { e.preventDefault(); setIsDragActive(true); }}
+              onDragLeave={(e) => { e.preventDefault(); setIsDragActive(false); }}
+              onDrop={(e) => { e.preventDefault(); setIsDragActive(false); addFiles(e.dataTransfer?.files); }}
             >
               <input
                 id="manual-attachments"
                 type="file"
                 multiple
                 accept={SUPPORTED_EXTENSIONS.join(",")}
-                onChange={(event) => addFiles(event.target.files)}
+                onChange={(e) => addFiles(e.target.files)}
               />
               <label htmlFor="manual-attachments" className="btn ghost small dropzone-upload" role="button">
                 Upload Files
@@ -265,43 +296,44 @@ function JiraForm({
         </>
       )}
 
-      <div className="form-grid">
-        <div className="field">
-          <label>LLM Model</label>
-          <select value={modelId} onChange={(e) => setModelId(e.target.value)}>
+      {/* LLM Model + Test Types — inline styles bypass all CSS cascade issues */}
+      <div style={ROW_STYLE}>
+
+        {/* LLM Model */}
+        <div style={LLM_COL_STYLE}>
+          <label style={LABEL_STYLE}>LLM Model</label>
+          <select value={modelId} onChange={(e) => setModelId(e.target.value)} style={SELECT_STYLE}>
             {modelSections.recommended.length ? (
               <optgroup label={modelSections.recommendedTitle}>
                 {modelSections.recommended.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.displayLabel}
-                  </option>
+                  <option key={model.id} value={model.id}>{model.displayLabel}</option>
                 ))}
               </optgroup>
             ) : null}
             {modelSections.openrouter.length ? (
               <optgroup label="OpenRouter Models">
                 {modelSections.openrouter.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.displayLabel}
-                  </option>
+                  <option key={model.id} value={model.id}>{model.displayLabel}</option>
                 ))}
               </optgroup>
             ) : null}
             {modelSections.others.length ? (
               <optgroup label="Other Models">
                 {modelSections.others.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.displayLabel}
-                  </option>
+                  <option key={model.id} value={model.id}>{model.displayLabel}</option>
                 ))}
               </optgroup>
             ) : null}
           </select>
         </div>
-        <div className="field">
-          <label>Test Types</label>
-          <details className="multi-select">
-            <summary className="multi-select-summary">{testTypes.length ? testTypes.join(", ") : "Select test types"}</summary>
+
+        {/* Test Types */}
+        <div style={TEST_COL_STYLE}>
+          <label style={LABEL_STYLE}>Test Types</label>
+          <details className="multi-select" style={MULTI_SELECT_STYLE}>
+            <summary className="multi-select-summary">
+              {testTypes.length ? testTypes.join(", ") : "Select test types"}
+            </summary>
             <div className="multi-select-list">
               {ALL_TYPES.map((t) => (
                 <label key={t} className="multi-select-item">
@@ -313,6 +345,7 @@ function JiraForm({
           </details>
           {!testTypes.length ? <div className="field-note">Select at least one test type.</div> : null}
         </div>
+
       </div>
 
       <div className="inline actions-row">
@@ -329,7 +362,9 @@ function JiraForm({
         </button>
       </div>
       {mode === "manual" && !hasManualContent ? (
-        <div className="field-note">Provide description, acceptance criteria, custom prompt, or attachments to continue.</div>
+        <div className="field-note">
+          Provide description, acceptance criteria, custom prompt, or attachments to continue.
+        </div>
       ) : null}
     </form>
   );

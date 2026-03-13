@@ -413,6 +413,85 @@ body {
   align-items: start;
 }
 
+/* ─── FIXED: LLM Model + Test Types alignment row ─── */
+.llm-testtypes-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: nowrap;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.llm-model-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 0 340px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.llm-model-section label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--txt2);
+  line-height: 1.4;
+  margin: 0;
+  padding: 0;
+}
+
+/* Force the select to exactly match the multi-select height */
+.llm-model-section select {
+  height: 42px;
+  min-height: 42px;
+  margin: 0;
+}
+
+.test-types-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.test-types-section label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--txt2);
+  line-height: 1.4;
+  margin: 0;
+  padding: 0;
+}
+
+/* Force the multi-select to exactly match the select height */
+.test-types-section .multi-select {
+  height: 42px;
+  min-height: 42px;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* When open, allow it to expand naturally */
+.test-types-section .multi-select[open] {
+  height: auto;
+  overflow: visible;
+}
+
+/* Prevent any rogue top margin from .field inside these sections */
+.llm-model-section.field,
+.test-types-section.field {
+  margin-top: 0;
+}
+
+/* ─── END FIX ─── */
+
 .jira-field-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2100,5 +2179,20 @@ select {
 
   .main {
     padding: 18px;
+  }
+
+  /* Stack LLM Model and Test Types vertically on small screens */
+  .llm-testtypes-row {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .llm-model-section {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .test-types-section {
+    width: 100%;
   }
 }
