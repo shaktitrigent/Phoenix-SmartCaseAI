@@ -2,6 +2,7 @@ import io
 import os
 import html
 import json
+import re
 from datetime import datetime
 from typing import Dict, List
 
@@ -18,15 +19,25 @@ class ExportService:
         os.makedirs(self.export_dir, exist_ok=True)
 
     @staticmethod
+    def _normalize_step_text(step: str) -> str:
+        text = str(step or "").strip()
+        if not text:
+            return ""
+        # Remove leading explicit numbering like "1.", "2)", "3 -", "4:".
+        return re.sub(r"^\s*\d+\s*[\.\)\-:]\s+", "", text)
+
+    @staticmethod
     def _to_dataframe(test_cases: List[Dict]) -> pd.DataFrame:
         records = []
         for case in test_cases:
+            raw_steps = case.get("steps", []) or []
+            steps = [ExportService._normalize_step_text(step) for step in raw_steps]
             records.append(
                 {
                     "Test Case ID": case.get("test_case_id", ""),
                     "Title": case.get("title", ""),
                     "Preconditions": case.get("preconditions", ""),
-                    "Steps": "\n".join(case.get("steps", [])),
+                    "Steps": "\n".join(step for step in steps if step),
                     "Expected Result": case.get("expected_result", ""),
                     "Test Type": case.get("test_type", ""),
                     "Priority": case.get("priority", ""),
@@ -105,11 +116,18 @@ class ExportService:
         for idx, case in enumerate(test_cases, start=1):
             case_id = case.get("test_case_id", f"TC-{idx}")
             case_title = case.get("title", "Untitled test case")
-            steps = case.get("steps", [])
+            steps = [
+                step
+                for step in (
+                    self._normalize_step_text(step) for step in (case.get("steps", []) or [])
+                )
+                if step
+            ]
 
             steps_text = "<br/>".join(
                 f"{step_idx}. {_safe(step)}"
                 for step_idx, step in enumerate(steps, start=1)
+                if step
             ) or "-"
 
             elements.extend(
@@ -158,10 +176,18 @@ class ExportService:
                 lines.append("    Given the system is ready for execution")
 
             if steps:
-                for step_idx, step in enumerate(steps):
-                    clean_step = str(step).strip() or f"step {step_idx + 1} is executed"
-                    keyword = "When" if step_idx == 0 else "And"
-                    lines.append(f"    {keyword} {clean_step}")
+                normalized_steps = [
+                    step
+                    for step in (ExportService._normalize_step_text(step) for step in steps)
+                    if step
+                ]
+                if normalized_steps:
+                    for step_idx, step in enumerate(normalized_steps):
+                        clean_step = step or f"step {step_idx + 1} is executed"
+                        keyword = "When" if step_idx == 0 else "And"
+                        lines.append(f"    {keyword} {clean_step}")
+                else:
+                    lines.append("    When the test flow is executed")
             else:
                 lines.append("    When the test flow is executed")
 
@@ -185,7 +211,14 @@ class ExportService:
             expected = str(case.get("expected_result", "-")).strip() or "-"
             test_type = str(case.get("test_type", "-")).strip() or "-"
             priority = str(case.get("priority", "-")).strip() or "-"
-            steps = case.get("steps", []) or []
+            steps = [
+                step
+                for step in (
+                    ExportService._normalize_step_text(step)
+                    for step in (case.get("steps", []) or [])
+                )
+                if step
+            ]
 
             lines.append(f"{idx}. {case_id} - {title}")
             lines.append(f"Type: {test_type} | Priority: {priority}")
@@ -193,7 +226,7 @@ class ExportService:
             lines.append("Steps:")
             if steps:
                 for step_idx, step in enumerate(steps, start=1):
-                    lines.append(f"  {step_idx}. {str(step).strip()}")
+                    lines.append(f"  {step_idx}. {step}")
             else:
                 lines.append("  1. No steps provided.")
             lines.append(f"Expected Result: {expected}")
