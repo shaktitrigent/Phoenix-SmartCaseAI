@@ -348,10 +348,10 @@ function JiraForm({
 
       </div>
 
-      <div className="inline actions-row">
+      <div style={{display:"flex",alignItems:"center",gap:"12px",marginTop:"6px"}}>
         <button
           type="submit"
-          className="btn primary-cta"
+          className="btn" style={{width:"fit-content",minWidth:"unset"}}
           disabled={
             loading ||
             (mode === "jira" && (!issueKey.trim() || !includeFields.length)) ||

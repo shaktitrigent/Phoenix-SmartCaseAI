@@ -29,12 +29,7 @@ const DEFAULT_SETTINGS = {
     default_model_id: "",
     auto_fallback: true,
     cache_enabled: true,
-    api_keys: {
-      anthropic: "",
-      gemini: "",
-      openai: "",
-      openrouter: ""
-    }
+    api_keys: { anthropic: "", gemini: "", openai: "", openrouter: "" }
   },
   testrail: {
     base_url: "",
@@ -53,54 +48,73 @@ const DEFAULT_SETTINGS = {
   }
 };
 
-const TEST_TYPES = [
-  "functional",
-  "regression",
-  "ui",
-  "security",
-  "performance",
-  "create",
-  "update",
-  "edge"
-];
+const TEST_TYPES = ["functional", "regression", "ui", "security", "performance", "create", "update", "edge"];
 
 const MODEL_CHOICES = [
-  {
-    id: "gemini-2.5-flash",
-    label: "Gemini 2.5 Flash",
-    desc: "Best balance of speed and quality ? Recommended"
-  },
-  {
-    id: "claude-3-7-sonnet",
-    label: "Claude 3.7 Sonnet",
-    desc: "Best for complex edge case generation ? Recommended"
-  },
-  {
-    id: "claude-3-5-haiku",
-    label: "Claude 3.5 Haiku",
-    desc: "Fast, lightweight choice for quick iterations"
-  },
-  {
-    id: "openai-gpt-4.1-mini",
-    label: "OpenAI GPT-4.1 Mini",
-    desc: "Good for standard functional test cases"
-  },
-  {
-    id: "local-llama",
-    label: "Local Llama (Ollama)",
-    desc: "On-premise ? No API cost ? Requires local setup"
-  }
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", desc: "Best balance of speed and quality ? Recommended" },
+  { id: "claude-3-7-sonnet", label: "Claude 3.7 Sonnet", desc: "Best for complex edge case generation ? Recommended" },
+  { id: "claude-3-5-haiku", label: "Claude 3.5 Haiku", desc: "Fast, lightweight choice for quick iterations" },
+  { id: "openai-gpt-4.1-mini", label: "OpenAI GPT-4.1 Mini", desc: "Good for standard functional test cases" },
+  { id: "local-llama", label: "Local Llama (Ollama)", desc: "On-premise ? No API cost ? Requires local setup" }
 ];
+
+// ── Shared inline styles ──────────────────────────────────────────────────────
+const ROW_STYLE = {
+  display: "flex",
+  flexDirection: "row",
+  alignItems: "flex-start",
+  gap: "16px",
+  width: "100%",
+  flexWrap: "wrap"
+};
+
+const COL_STYLE = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
+  flex: "1 1 200px",
+  minWidth: "180px"
+};
+
+const LABEL_STYLE = {
+  fontSize: "0.8rem",
+  fontWeight: 600,
+  color: "var(--txt2)",
+  lineHeight: 1.4
+};
+
+const INPUT_STYLE = {
+  height: "42px",
+  minHeight: "42px",
+  margin: 0,
+  background: "var(--surface2)",
+  border: "1px solid var(--border)",
+  borderRadius: "8px",
+  padding: "0 14px",
+  color: "var(--txt)",
+  fontSize: "0.85rem",
+  width: "100%",
+  fontFamily: "inherit"
+};
+
+const SELECT_STYLE = {
+  ...INPUT_STYLE,
+  cursor: "pointer",
+  appearance: "none",
+  padding: "0 32px 0 14px",
+  backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: "right 12px center",
+  background: "var(--surface2)"
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 function Settings() {
   const [activeTab, setActiveTab] = useState("jira");
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState([]);
-  const [connectionState, setConnectionState] = useState({
-    jira: null,
-    testrail: null
-  });
+  const [connectionState, setConnectionState] = useState({ jira: null, testrail: null });
 
   const addToast = (message, type = "info") => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -119,10 +133,7 @@ function Settings() {
       try {
         setLoading(true);
         const response = await getSettings();
-        setSettings((prev) => ({
-          ...prev,
-          ...response
-        }));
+        setSettings((prev) => ({ ...prev, ...response }));
       } catch (err) {
         addToast(err?.response?.data?.error || err?.message || "Unable to load settings", "error");
       } finally {
@@ -133,13 +144,7 @@ function Settings() {
   }, []);
 
   const updateSection = (section, updates) => {
-    setSettings((prev) => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        ...updates
-      }
-    }));
+    setSettings((prev) => ({ ...prev, [section]: { ...prev[section], ...updates } }));
   };
 
   const handleSave = async (section) => {
@@ -147,10 +152,7 @@ function Settings() {
       setLoading(true);
       const payload = { [section]: settings[section] };
       const response = await updateSettings(payload);
-      setSettings((prev) => ({
-        ...prev,
-        ...response
-      }));
+      setSettings((prev) => ({ ...prev, ...response }));
       addToast("Settings saved.", "success");
     } catch (err) {
       addToast(err?.response?.data?.error || err?.message || "Save failed", "error");
@@ -160,12 +162,8 @@ function Settings() {
   };
 
   const toggleDefaultType = (value) => {
-    const current = Array.isArray(settings.behavior.default_test_types)
-      ? settings.behavior.default_test_types
-      : [];
-    const next = current.includes(value)
-      ? current.filter((item) => item !== value)
-      : [...current, value];
+    const current = Array.isArray(settings.behavior.default_test_types) ? settings.behavior.default_test_types : [];
+    const next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
     updateSection("behavior", { default_test_types: next });
   };
 
@@ -183,20 +181,13 @@ function Settings() {
       }
     }
     const now = new Date();
-    setConnectionState((prev) => ({
-      ...prev,
-      [section]: now.toLocaleTimeString()
-    }));
+    setConnectionState((prev) => ({ ...prev, [section]: now.toLocaleTimeString() }));
     addToast("Connection successful.", "success");
   };
 
   const activeModel = settings.llm.default_model_id || MODEL_CHOICES[0].id;
-
   const defaultModelOptions = useMemo(
-    () => MODEL_CHOICES.map((item) => ({
-      ...item,
-      selected: item.id === activeModel
-    })),
+    () => MODEL_CHOICES.map((item) => ({ ...item, selected: item.id === activeModel })),
     [activeModel]
   );
 
@@ -228,6 +219,7 @@ function Settings() {
           ))}
         </div>
 
+        {/* ── JIRA TAB ── */}
         {activeTab === "jira" ? (
           <div className="settings-body">
             <div className="settings-section">
@@ -240,29 +232,34 @@ function Settings() {
                   <label>Jira Base URL</label>
                   <input
                     value={settings.jira.base_url || ""}
-                    onChange={(event) => updateSection("jira", { base_url: event.target.value })}
+                    onChange={(e) => updateSection("jira", { base_url: e.target.value })}
                     placeholder="https://yourcompany.atlassian.net"
                   />
                 </div>
-                <div className="form-grid">
-                  <div className="field">
-                    <label>Username / Email</label>
+
+                {/* FIXED: Username / Email + API Token aligned */}
+                <div style={ROW_STYLE}>
+                  <div style={COL_STYLE}>
+                    <label style={LABEL_STYLE}>Username / Email</label>
                     <input
+                      style={INPUT_STYLE}
                       value={settings.jira.username || ""}
-                      onChange={(event) => updateSection("jira", { username: event.target.value })}
+                      onChange={(e) => updateSection("jira", { username: e.target.value })}
                       placeholder="user@company.com"
                     />
                   </div>
-                  <div className="field">
-                    <label>API Token</label>
+                  <div style={COL_STYLE}>
+                    <label style={LABEL_STYLE}>API Token</label>
                     <input
+                      style={INPUT_STYLE}
                       type="password"
                       value={settings.jira.api_token || ""}
-                      onChange={(event) => updateSection("jira", { api_token: event.target.value })}
+                      onChange={(e) => updateSection("jira", { api_token: e.target.value })}
                       placeholder="????????"
                     />
                   </div>
                 </div>
+
                 <div className="btn-row">
                   <button type="button" className="btn" onClick={() => handleTestConnection("jira")}>
                     Test Connection
@@ -291,11 +288,7 @@ function Settings() {
                   <button
                     type="button"
                     className={`toggle ${settings.jira.attachment_download_enabled ? "on" : ""}`}
-                    onClick={() =>
-                      updateSection("jira", {
-                        attachment_download_enabled: !settings.jira.attachment_download_enabled
-                      })
-                    }
+                    onClick={() => updateSection("jira", { attachment_download_enabled: !settings.jira.attachment_download_enabled })}
                     aria-label="Toggle attachment download"
                   />
                 </div>
@@ -307,11 +300,7 @@ function Settings() {
                   <button
                     type="button"
                     className={`toggle ${settings.jira.attachment_parse_enabled ? "on" : ""}`}
-                    onClick={() =>
-                      updateSection("jira", {
-                        attachment_parse_enabled: !settings.jira.attachment_parse_enabled
-                      })
-                    }
+                    onClick={() => updateSection("jira", { attachment_parse_enabled: !settings.jira.attachment_parse_enabled })}
                     aria-label="Toggle attachment parsing"
                   />
                 </div>
@@ -320,6 +309,7 @@ function Settings() {
           </div>
         ) : null}
 
+        {/* ── LLM TAB ── */}
         {activeTab === "llm" ? (
           <div className="settings-body">
             <div className="settings-section">
@@ -350,58 +340,23 @@ function Settings() {
                 <p>Enter keys for each provider you want to use. Keys are stored locally.</p>
               </div>
               <div className="settings-fields">
-                <div className="field">
-                  <label>Anthropic (Claude)</label>
-                  <input
-                    type="password"
-                    value={settings.llm.api_keys.anthropic}
-                    onChange={(event) =>
-                      updateSection("llm", {
-                        api_keys: { ...settings.llm.api_keys, anthropic: event.target.value }
-                      })
-                    }
-                  />
-                </div>
-                <div className="field">
-                  <label>Google (Gemini)</label>
-                  <input
-                    type="password"
-                    value={settings.llm.api_keys.gemini}
-                    onChange={(event) =>
-                      updateSection("llm", {
-                        api_keys: { ...settings.llm.api_keys, gemini: event.target.value }
-                      })
-                    }
-                  />
-                </div>
-                <div className="field">
-                  <label>OpenAI</label>
-                  <input
-                    type="password"
-                    value={settings.llm.api_keys.openai}
-                    onChange={(event) =>
-                      updateSection("llm", {
-                        api_keys: { ...settings.llm.api_keys, openai: event.target.value }
-                      })
-                    }
-                  />
-                </div>
-                <div className="field">
-                  <label>OpenRouter</label>
-                  <input
-                    type="password"
-                    value={settings.llm.api_keys.openrouter}
-                    onChange={(event) =>
-                      updateSection("llm", {
-                        api_keys: { ...settings.llm.api_keys, openrouter: event.target.value }
-                      })
-                    }
-                  />
-                </div>
+                {[
+                  { label: "Anthropic (Claude)", key: "anthropic" },
+                  { label: "Google (Gemini)", key: "gemini" },
+                  { label: "OpenAI", key: "openai" },
+                  { label: "OpenRouter", key: "openrouter" }
+                ].map(({ label, key }) => (
+                  <div className="field" key={key}>
+                    <label>{label}</label>
+                    <input
+                      type="password"
+                      value={settings.llm.api_keys[key]}
+                      onChange={(e) => updateSection("llm", { api_keys: { ...settings.llm.api_keys, [key]: e.target.value } })}
+                    />
+                  </div>
+                ))}
                 <div className="btn-row">
-                  <button type="button" className="btn secondary" onClick={() => handleSave("llm")}>
-                    Save Keys
-                  </button>
+                  <button type="button" className="btn secondary" onClick={() => handleSave("llm")}>Save Keys</button>
                 </div>
               </div>
             </div>
@@ -441,6 +396,7 @@ function Settings() {
           </div>
         ) : null}
 
+        {/* ── TESTRAIL TAB ── */}
         {activeTab === "testrail" ? (
           <div className="settings-body">
             <div className="settings-section">
@@ -453,29 +409,34 @@ function Settings() {
                   <label>TestRail URL</label>
                   <input
                     value={settings.testrail.base_url || ""}
-                    onChange={(event) => updateSection("testrail", { base_url: event.target.value })}
+                    onChange={(e) => updateSection("testrail", { base_url: e.target.value })}
                     placeholder="https://yourcompany.testrail.io"
                   />
                 </div>
-                <div className="form-grid">
-                  <div className="field">
-                    <label>Username</label>
+
+                {/* FIXED: Username + API Key aligned */}
+                <div style={ROW_STYLE}>
+                  <div style={COL_STYLE}>
+                    <label style={LABEL_STYLE}>Username</label>
                     <input
+                      style={INPUT_STYLE}
                       value={settings.testrail.username || ""}
-                      onChange={(event) => updateSection("testrail", { username: event.target.value })}
+                      onChange={(e) => updateSection("testrail", { username: e.target.value })}
                       placeholder="qa@company.com"
                     />
                   </div>
-                  <div className="field">
-                    <label>API Key</label>
+                  <div style={COL_STYLE}>
+                    <label style={LABEL_STYLE}>API Key</label>
                     <input
+                      style={INPUT_STYLE}
                       type="password"
                       value={settings.testrail.api_key || ""}
-                      onChange={(event) => updateSection("testrail", { api_key: event.target.value })}
+                      onChange={(e) => updateSection("testrail", { api_key: e.target.value })}
                       placeholder="????????"
                     />
                   </div>
                 </div>
+
                 <div className="btn-row">
                   <button type="button" className="btn" onClick={() => handleTestConnection("testrail")}>
                     Test Connection
@@ -504,11 +465,7 @@ function Settings() {
                   <button
                     type="button"
                     className={`toggle ${settings.testrail.push_only_approved ? "on" : ""}`}
-                    onClick={() =>
-                      updateSection("testrail", {
-                        push_only_approved: !settings.testrail.push_only_approved
-                      })
-                    }
+                    onClick={() => updateSection("testrail", { push_only_approved: !settings.testrail.push_only_approved })}
                     aria-label="Toggle push-only-approved"
                   />
                 </div>
@@ -520,11 +477,7 @@ function Settings() {
                   <button
                     type="button"
                     className={`toggle ${settings.testrail.overwrite_duplicates ? "on" : ""}`}
-                    onClick={() =>
-                      updateSection("testrail", {
-                        overwrite_duplicates: !settings.testrail.overwrite_duplicates
-                      })
-                    }
+                    onClick={() => updateSection("testrail", { overwrite_duplicates: !settings.testrail.overwrite_duplicates })}
                     aria-label="Toggle overwrite duplicates"
                   />
                 </div>
@@ -533,6 +486,7 @@ function Settings() {
           </div>
         ) : null}
 
+        {/* ── BEHAVIOR TAB ── */}
         {activeTab === "behavior" ? (
           <div className="settings-body">
             <div className="settings-section">
@@ -559,22 +513,24 @@ function Settings() {
                     })}
                   </div>
                 </div>
-                <div className="form-grid">
-                  <div className="field">
-                    <label>Max Cases per Issue</label>
+
+                {/* FIXED: Max Cases per Issue + Output Language aligned */}
+                <div style={ROW_STYLE}>
+                  <div style={COL_STYLE}>
+                    <label style={LABEL_STYLE}>Max Cases per Issue</label>
                     <input
+                      style={INPUT_STYLE}
                       type="number"
                       value={settings.behavior.max_cases_per_issue}
-                      onChange={(event) =>
-                        updateSection("behavior", { max_cases_per_issue: Number(event.target.value) || 0 })
-                      }
+                      onChange={(e) => updateSection("behavior", { max_cases_per_issue: Number(e.target.value) || 0 })}
                     />
                   </div>
-                  <div className="field">
-                    <label>Output Language</label>
+                  <div style={COL_STYLE}>
+                    <label style={LABEL_STYLE}>Output Language</label>
                     <select
+                      style={SELECT_STYLE}
                       value={settings.behavior.output_language}
-                      onChange={(event) => updateSection("behavior", { output_language: event.target.value })}
+                      onChange={(e) => updateSection("behavior", { output_language: e.target.value })}
                     >
                       <option value="English">English</option>
                     </select>
@@ -589,54 +545,36 @@ function Settings() {
                 <p>Configure how the review queue works for your team.</p>
               </div>
               <div className="settings-fields">
-                <div className="settings-toggle-card">
-                  <div>
-                    <div className="toggle-label">Require review before export</div>
-                    <div className="toggle-sub">Block export/push if any cases are still pending</div>
+                {[
+                  {
+                    label: "Require review before export",
+                    sub: "Block export/push if any cases are still pending",
+                    key: "require_review_before_export"
+                  },
+                  {
+                    label: "Auto-approve on regenerate",
+                    sub: "Newly regenerated cases are auto-approved if identical",
+                    key: "auto_approve_on_regenerate"
+                  },
+                  {
+                    label: "Show duplicate hints",
+                    sub: "Highlight cases that are semantically similar",
+                    key: "show_duplicate_hints"
+                  }
+                ].map(({ label, sub, key }) => (
+                  <div className="settings-toggle-card" key={key}>
+                    <div>
+                      <div className="toggle-label">{label}</div>
+                      <div className="toggle-sub">{sub}</div>
+                    </div>
+                    <button
+                      type="button"
+                      className={`toggle ${settings.behavior[key] ? "on" : ""}`}
+                      onClick={() => updateSection("behavior", { [key]: !settings.behavior[key] })}
+                      aria-label={`Toggle ${label}`}
+                    />
                   </div>
-                  <button
-                    type="button"
-                    className={`toggle ${settings.behavior.require_review_before_export ? "on" : ""}`}
-                    onClick={() =>
-                      updateSection("behavior", {
-                        require_review_before_export: !settings.behavior.require_review_before_export
-                      })
-                    }
-                    aria-label="Toggle require review"
-                  />
-                </div>
-                <div className="settings-toggle-card">
-                  <div>
-                    <div className="toggle-label">Auto-approve on regenerate</div>
-                    <div className="toggle-sub">Newly regenerated cases are auto-approved if identical</div>
-                  </div>
-                  <button
-                    type="button"
-                    className={`toggle ${settings.behavior.auto_approve_on_regenerate ? "on" : ""}`}
-                    onClick={() =>
-                      updateSection("behavior", {
-                        auto_approve_on_regenerate: !settings.behavior.auto_approve_on_regenerate
-                      })
-                    }
-                    aria-label="Toggle auto approve on regenerate"
-                  />
-                </div>
-                <div className="settings-toggle-card">
-                  <div>
-                    <div className="toggle-label">Show duplicate hints</div>
-                    <div className="toggle-sub">Highlight cases that are semantically similar</div>
-                  </div>
-                  <button
-                    type="button"
-                    className={`toggle ${settings.behavior.show_duplicate_hints ? "on" : ""}`}
-                    onClick={() =>
-                      updateSection("behavior", {
-                        show_duplicate_hints: !settings.behavior.show_duplicate_hints
-                      })
-                    }
-                    aria-label="Toggle duplicate hints"
-                  />
-                </div>
+                ))}
               </div>
             </div>
           </div>
