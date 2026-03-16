@@ -204,7 +204,8 @@
           <ul>
             <li>Accepts DOM/HTML as input.</li>
             <li>Produces locator JSON with primary and alternate locator strategies.</li>
-            <li>Outputs runnable automation templates for Selenium/Playwright in Python/Java/TypeScript.</li>
+            <li>Outputs runnable automation templates and reusable test functions for Selenium/Playwright.</li>
+            <li>Supports Python (default), Java, and TypeScript outputs.</li>
             <li>Includes model attribution so teams know which provider generated the output.</li>
           </ul>
         </div>
@@ -250,6 +251,7 @@
             <li>RAG-style semantic context retrieval using sentence embeddings + FAISS.</li>
             <li>Provider routing for Gemini, OpenAI, Anthropic, OpenRouter, local Llama, fallback rules.</li>
             <li>Response parser normalizes and recovers JSON fragments when model output is noisy.</li>
+            <li>Locator prompts enforce framework-idiomatic output (Playwright vs. Selenium).</li>
           </ul>
         </div>
         <div>
@@ -303,7 +305,7 @@
           <ul>
             <li>Provider routing with model catalog exposure to frontend.</li>
             <li>Embedding-based semantic context enrichment for higher relevance prompts.</li>
-            <li>Deterministic fallback generator when provider/model is unavailable.</li>
+            <li>Deterministic fallback generator with framework/language-specific templates.</li>
           </ul>
         </div>
         <div>
@@ -412,7 +414,7 @@
               <td>POST</td>
               <td>Generate locators + automation template</td>
               <td>dom, framework, language, model_id</td>
-              <td>locators, test_template, model_used</td>
+              <td>locators, test_function, automation_script, model_used</td>
             </tr>
             <tr>
               <td><code>/review-testcases</code></td>

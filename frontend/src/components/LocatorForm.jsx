@@ -260,7 +260,7 @@ function LocatorForm({
 
       <div className="actions-row inline">
         <button type="submit" className="btn" disabled={loading || (!dom.trim() && !attachmentFiles.length)}>
-          {loading ? "Generating..." : "Generate"}
+          {loading ? "Generating Locators..." : "Generate Locators"}
         </button>
       </div>
     </form>

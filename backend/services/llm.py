@@ -576,6 +576,7 @@ class LLMService:
 
         if framework_norm == "playwright" and language_norm == "typescript":
             return (
+                "import type { Page } from '@playwright/test';\n\n"
                 "async function loginSmoke(page: Page): Promise<void> {\n"
                 "  await page.locator(\"input[name='username'], #username\").fill('demo');\n"
                 "  await page.locator(\"input[name='password'], #password\").fill('demo-password');\n"
@@ -584,6 +585,8 @@ class LLMService:
             )
         if framework_norm == "playwright" and language_norm == "java":
             return (
+                "import com.microsoft.playwright.Page;\n"
+                "import com.microsoft.playwright.options.AriaRole;\n\n"
                 "private static void loginSmoke(Page page) {\n"
                 "  page.locator(\"input[name='username'], #username\").fill(\"demo\");\n"
                 "  page.locator(\"input[name='password'], #password\").fill(\"demo-password\");\n"
@@ -592,6 +595,8 @@ class LLMService:
             )
         if framework_norm == "selenium" and language_norm == "java":
             return (
+                "import org.openqa.selenium.By;\n"
+                "import org.openqa.selenium.WebDriver;\n\n"
                 "private static void loginSmoke(WebDriver driver) {\n"
                 "  driver.findElement(By.cssSelector(\"input[name='username'], #username\")).sendKeys(\"demo\");\n"
                 "  driver.findElement(By.cssSelector(\"input[name='password'], #password\")).sendKeys(\"demo-password\");\n"
@@ -600,6 +605,7 @@ class LLMService:
             )
         if framework_norm == "selenium" and language_norm == "typescript":
             return (
+                "import { By, WebDriver } from 'selenium-webdriver';\n\n"
                 "async function loginSmoke(driver: WebDriver): Promise<void> {\n"
                 "  await driver.findElement(By.css(\"input[name='username'], #username\")).sendKeys('demo');\n"
                 "  await driver.findElement(By.css(\"input[name='password'], #password\")).sendKeys('demo-password');\n"
@@ -638,6 +644,7 @@ class LLMService:
 
         if framework_norm == "playwright" and language_norm == "python":
             return (
+                "import re\n"
                 "from playwright.sync_api import Playwright, sync_playwright, expect\n\n"
                 f"# Framework: {framework} | Language: {language}\n"
                 f"{hint}\n\n"
@@ -656,6 +663,8 @@ class LLMService:
         if framework_norm == "playwright" and language_norm == "java":
             return (
                 "import com.microsoft.playwright.*;\n"
+                "import com.microsoft.playwright.options.AriaRole;\n"
+                "import java.util.regex.Pattern;\n"
                 "import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;\n\n"
                 "public class LocatorSmokeTest {\n"
                 "  public static void main(String[] args) {\n"
@@ -668,7 +677,7 @@ class LLMService:
                 "      page.locator(\"input[name='username'], #username\").fill(\"demo\");\n"
                 "      page.locator(\"input[name='password'], #password\").fill(\"demo-password\");\n"
                 "      page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName(\"Sign in\")).click();\n"
-                "      assertThat(page).not().hasURL(\".*login.*\");\n"
+                "      assertThat(page).not().hasURL(Pattern.compile(\".*login.*\"));\n"
                 "      browser.close();\n"
                 "    }\n"
                 "  }\n"

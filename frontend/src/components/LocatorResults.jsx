@@ -3,7 +3,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 function LocatorResults({ data, language }) {
   const [functionExportOpen, setFunctionExportOpen] = useState(false);
   const [automationExportOpen, setAutomationExportOpen] = useState(false);
+  const [copiedMap, setCopiedMap] = useState({});
   const actionMenusRef = useRef(null);
+  const copyTimersRef = useRef({});
 
   const extension = useMemo(() => {
     const value = String(language || "").toLowerCase();
@@ -20,7 +22,28 @@ function LocatorResults({ data, language }) {
   const testFunction = String(data?.test_function || "");
   const automationScript = String(data?.automation_script || data?.test_template || "");
 
-  const copy = async (text) => {
+  const markCopied = (key) => {
+    if (!key) {
+      return;
+    }
+    if (copyTimersRef.current[key]) {
+      clearTimeout(copyTimersRef.current[key]);
+    }
+    setCopiedMap((prev) => ({ ...prev, [key]: true }));
+    copyTimersRef.current[key] = setTimeout(() => {
+      setCopiedMap((prev) => {
+        if (!prev[key]) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      delete copyTimersRef.current[key];
+    }, 1500);
+  };
+
+  const copy = async (text, key) => {
     if (!text) {
       return;
     }
@@ -29,6 +52,7 @@ function LocatorResults({ data, language }) {
         throw new Error("Clipboard is not available.");
       }
       await navigator.clipboard.writeText(text);
+      markCopied(key);
     } catch (err) {
       console.error("Copy failed:", err);
     }
@@ -114,7 +138,11 @@ function LocatorResults({ data, language }) {
       }
     };
     document.addEventListener("click", onDocumentClick);
-    return () => document.removeEventListener("click", onDocumentClick);
+    return () => {
+      document.removeEventListener("click", onDocumentClick);
+      Object.values(copyTimersRef.current).forEach((timerId) => clearTimeout(timerId));
+      copyTimersRef.current = {};
+    };
   }, []);
 
   if (!data) {
@@ -207,8 +235,12 @@ function LocatorResults({ data, language }) {
                     <td>{item.alternate_locator}</td>
                     <td>{item.strategy}</td>
                     <td>
-                      <button className="btn ghost small" type="button" onClick={() => copy(item.primary_locator)}>
-                        Copy
+                      <button
+                        className="btn ghost small"
+                        type="button"
+                        onClick={() => copy(item.primary_locator, `locator-${idx}`)}
+                      >
+                        {copiedMap[`locator-${idx}`] ? "Copied" : "Copy"}
                       </button>
                     </td>
                   </tr>
@@ -228,8 +260,8 @@ function LocatorResults({ data, language }) {
         {testFunction ? (
           <>
             <div className="inline actions-row">
-              <button className="btn ghost small" type="button" onClick={() => copy(testFunction)}>
-                Copy
+              <button className="btn ghost small" type="button" onClick={() => copy(testFunction, "test-function")}>
+                {copiedMap["test-function"] ? "Copied" : "Copy"}
               </button>
               <div className="export-menu">
                 <button
@@ -271,8 +303,12 @@ function LocatorResults({ data, language }) {
         {automationScript ? (
           <>
             <div className="inline actions-row">
-              <button className="btn ghost small" type="button" onClick={() => copy(automationScript)}>
-                Copy
+              <button
+                className="btn ghost small"
+                type="button"
+                onClick={() => copy(automationScript, "automation-script")}
+              >
+                {copiedMap["automation-script"] ? "Copied" : "Copy"}
               </button>
               <div className="export-menu">
                 <button

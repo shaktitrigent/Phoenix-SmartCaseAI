@@ -89,6 +89,8 @@ def build_locator_prompt(
         "Avoid brittle absolute XPath.",
         "Provide alternate locator strategies whenever possible.",
         "Output both: (1) a reusable test function and (2) a complete runnable automation script.",
+        "Ensure the test function and automation script are idiomatic for the requested framework + language.",
+        "Use Playwright locators/APIs for Playwright and Selenium By.* APIs for Selenium.",
         f"Framework: {framework}",
         f"Language: {language}",
         "Custom Instructions:",
