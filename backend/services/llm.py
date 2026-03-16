@@ -31,8 +31,15 @@ OPENROUTER_FREE_MODEL_OPTIONS = [
 ]
 
 
-def call_openrouter(model: str, prompt: str) -> str:
-    api_key = Config.OPENROUTER_API_KEY
+def call_openrouter(
+    model: str,
+    prompt: str,
+    api_key: str,
+    base_url: str,
+    temperature: float,
+    max_tokens: int,
+    timeout_seconds: int,
+) -> str:
     if not api_key:
         return ""
 
@@ -43,11 +50,12 @@ def call_openrouter(model: str, prompt: str) -> str:
         logger.error("OpenRouter model rejected (not in free allowlist): %s", resolved_model)
         return ""
 
-    url = f"{Config.OPENROUTER_BASE_URL}/chat/completions"
+    resolved_base_url = (base_url or Config.OPENROUTER_BASE_URL).rstrip("/")
+    url = f"{resolved_base_url}/chat/completions"
     payload = {
         "model": resolved_model,
-        "temperature": Config.LLM_TEMPERATURE,
-        "max_tokens": Config.LLM_MAX_TOKENS,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
         "messages": [
             {
                 "role": "user",
@@ -65,7 +73,7 @@ def call_openrouter(model: str, prompt: str) -> str:
             url,
             headers=headers,
             json=payload,
-            timeout=Config.LLM_TIMEOUT_SECONDS,
+            timeout=timeout_seconds,
         )
     except requests.exceptions.Timeout:
         logger.error("OpenRouter request timed out for model: %s", resolved_model)
@@ -118,6 +126,8 @@ class LLMService:
         self.temperature = Config.LLM_TEMPERATURE
         self.n_ctx = Config.LLM_N_CTX
         self.timeout_seconds = Config.LLM_TIMEOUT_SECONDS
+        self.auto_fallback = True
+        self.cache_enabled = True
 
         self.gemini_api_key = Config.GEMINI_API_KEY
         self.gemini_base_url = Config.GEMINI_BASE_URL
@@ -127,6 +137,7 @@ class LLMService:
         self.anthropic_api_key = Config.ANTHROPIC_API_KEY
         self.anthropic_base_url = Config.ANTHROPIC_BASE_URL
         self.openrouter_api_key = Config.OPENROUTER_API_KEY
+        self.openrouter_base_url = Config.OPENROUTER_BASE_URL
 
         self.default_model_id = Config.LLM_DEFAULT_MODEL_ID
         self.last_model_used = ""
@@ -169,7 +180,15 @@ class LLMService:
 
     def _try_openrouter_models(self, prompt: str, models: List[str]) -> Optional[str]:
         for model_name in self._dedupe(models):
-            result = call_openrouter(model_name, prompt)
+            result = call_openrouter(
+                model_name,
+                prompt,
+                api_key=self.openrouter_api_key,
+                base_url=self.openrouter_base_url,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                timeout_seconds=self.timeout_seconds,
+            )
             if result:
                 self.last_model_used = f"openrouter:{model_name}"
                 return result
@@ -281,6 +300,11 @@ class LLMService:
             result = self._try_openrouter_models(prompt, chain)
             if result:
                 return result
+
+        if not self.auto_fallback:
+            raise ValueError(
+                "Selected model failed or is unavailable. Enable auto-fallback or choose another model."
+            )
 
         if self.provider == "auto":
             if self.gemini_api_key:

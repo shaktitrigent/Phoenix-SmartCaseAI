@@ -1,0 +1,26 @@
+[
+  {
+    "message": "TC-002 marked approved.",
+    "category": "review"
+  },
+  {
+    "message": "TC-001 marked approved.",
+    "category": "review"
+  },
+  {
+    "message": "Generated 2 test case(s) from CDM-185.",
+    "category": "generation"
+  },
+  {
+    "message": "TC-001 marked approved.",
+    "category": "review"
+  },
+  {
+    "message": "TC-001 marked rejected.",
+    "category": "review"
+  },
+  {
+    "message": "Generated 2 test case(s) from CDM-185.",
+    "category": "generation"
+  }
+]

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import ToastStack from "../components/ToastStack";
 import { approveAllPending, getReviewQueue, updateReviewStatus } from "../services/api";
+import { getFriendlyError } from "../utils/error";
 
 const FILTERS = [
   { id: "all", label: "All" },
@@ -24,6 +25,9 @@ function ReviewQueue() {
   const [noteDrafts, setNoteDrafts] = useState({});
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
+  const [rejectionTestCase, setRejectionTestCase] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const addToast = (message, type = "info") => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -56,7 +60,7 @@ function ReviewQueue() {
       });
     } catch (err) {
       if (!silent) {
-        addToast(err?.response?.data?.error || err?.message || "Unable to load review queue", "error");
+        addToast(getFriendlyError(err, "Unable to load review queue"), "error");
       }
     } finally {
       if (!silent) setLoading(false);
@@ -78,7 +82,7 @@ function ReviewQueue() {
     setOpenRows((prev) => ({ ...prev, [rowKey]: !prev[rowKey] }));
   };
 
-  const handleReviewUpdate = async (item, status) => {
+  const handleReviewUpdate = async (item, status, customNote = null) => {
     const testCaseId = String(item?.test_case_id || "").trim();
     if (!testCaseId) {
       addToast("Missing test_case_id for this row.", "error");
@@ -86,10 +90,11 @@ function ReviewQueue() {
     }
     try {
       setLoading(true);
+      const note = customNote !== null ? customNote : (noteDrafts[testCaseId] || "");
       const response = await updateReviewStatus({
         test_case_id: testCaseId,
         review_status: status,
-        note: noteDrafts[testCaseId] || ""
+        note
       });
       const updatedCase = response?.updated || {};
       setCases((prev) =>
@@ -100,7 +105,7 @@ function ReviewQueue() {
       }
       addToast(`Marked ${testCaseId} as ${status}.`, "success");
     } catch (err) {
-      addToast(err?.response?.data?.error || err?.message || "Update failed", "error");
+      addToast(getFriendlyError(err, "Update failed"), "error");
     } finally {
       setLoading(false);
     }
@@ -116,7 +121,7 @@ function ReviewQueue() {
       await loadQueue(activeFilter);
       addToast("Approved all pending cases.", "success");
     } catch (err) {
-      addToast(err?.response?.data?.error || err?.message || "Approve all failed", "error");
+      addToast(getFriendlyError(err, "Approve all failed"), "error");
     } finally {
       setLoading(false);
     }
@@ -240,7 +245,11 @@ function ReviewQueue() {
                       <button
                         type="button"
                         className="btn secondary small"
-                        onClick={() => handleReviewUpdate(item, "rejected")}
+                        onClick={() => {
+                          setRejectionTestCase(item);
+                          setRejectionReason(noteDrafts[rowKey] || "");
+                          setShowRejectionModal(true);
+                        }}
                       >
                         Reject
                       </button>
@@ -252,6 +261,58 @@ function ReviewQueue() {
           })
         )}
       </div>
+
+      {showRejectionModal && rejectionTestCase && (
+        <div className="modal-overlay" onClick={() => setShowRejectionModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Reject Test Case</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowRejectionModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>Provide a reason for rejecting test case <strong>{rejectionTestCase.test_case_id}</strong>:</p>
+              <textarea
+                rows={4}
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Enter rejection reason..."
+                required
+              />
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => setShowRejectionModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={async () => {
+                  if (!rejectionReason.trim()) {
+                    addToast("Rejection reason is required.", "error");
+                    return;
+                  }
+                  await handleReviewUpdate(rejectionTestCase, "rejected", rejectionReason);
+                  setShowRejectionModal(false);
+                  setRejectionTestCase(null);
+                  setRejectionReason("");
+                }}
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -27,6 +27,7 @@ class LLMEngine:
         issue_data: Dict,
         test_types: List[str],
         model_id: Optional[str] = None,
+        output_language: str = "",
     ) -> List[Dict]:
         searchable_chunks = []
         summary = issue_data.get("summary", "")
@@ -74,6 +75,7 @@ class LLMEngine:
             test_types=test_types,
             semantic_context=semantic_context,
             knowledge_text=knowledge_text,
+            output_language=output_language,
         )
         seed_payload = {
             "mode": "test_case_generation",

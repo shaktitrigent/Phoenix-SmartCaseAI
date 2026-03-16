@@ -1,0 +1,40 @@
+[
+  {
+    "test_case_id": "TC-001",
+    "title": "Verify 'Reason (why and intent)' field is mandatory when creating a validation record via UI",
+    "preconditions": "1. User is logged into the application with appropriate permissions to create validation records.\n2. The UI for creating a validation record is accessible.",
+    "steps": [
+      "Navigate to the 'Create Validation Record' section in the UI.",
+      "Fill in all other mandatory fields (if any) except for the 'Reason (why and intent)' field.",
+      "Attempt to save or submit the validation record."
+    ],
+    "expected_result": "The system displays a mandatory error message for the 'Reason (why and intent)' field, preventing the record from being created.",
+    "test_type": "ui",
+    "priority": "High",
+    "review_status": "approved",
+    "review_note": "",
+    "is_edited": false,
+    "edited_fields": [],
+    "last_edited_at": "",
+    "last_edited_by": ""
+  },
+  {
+    "test_case_id": "TC-002",
+    "title": "Verify error message when updating a correction record via UI by removing all parameters/features",
+    "preconditions": "1. User is logged into the application with appropriate permissions to create and update correction records.\n2. A correction record exists with at least one parameter (e.g., AXLE-CONFIG = 2X0).\n3. The UI for updating correction records is accessible.",
+    "steps": [
+      "Navigate to the existing correction record in the UI.",
+      "Edit the record and remove all existing parameters/features.",
+      "Attempt to save or submit the updated correction record."
+    ],
+    "expected_result": "The system displays an error message: 'At least one Parameter or Feature should be either Added or Removed', preventing the update.",
+    "test_type": "ui",
+    "priority": "High",
+    "review_status": "approved",
+    "review_note": "",
+    "is_edited": false,
+    "edited_fields": [],
+    "last_edited_at": "",
+    "last_edited_by": ""
+  }
+]

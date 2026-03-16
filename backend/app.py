@@ -1,8 +1,10 @@
 import io
+import json
 import logging
 import os
 import tempfile
 import traceback
+from datetime import datetime
 from threading import Lock
 from urllib.parse import urlparse
 
@@ -48,6 +50,7 @@ _latest_cases = []
 _latest_lock = Lock()
 _activity_log = []
 _activity_lock = Lock()
+_settings_lock = Lock()
 _manual_upload_max_size_bytes = 10 * 1024 * 1024
 _manual_upload_exts = {
     ".pdf",
@@ -102,6 +105,42 @@ _jira_include_fields = {
     "custom_fields",
     "issue_type",
 }
+_storage_dir = os.path.join(os.path.dirname(__file__), "storage")
+_latest_cases_file = os.path.join(_storage_dir, "latest_cases.json")
+_activity_log_file = os.path.join(_storage_dir, "activity_log.json")
+_settings_file = os.path.join(_storage_dir, "settings.json")
+_rejection_log_file = os.path.join(_storage_dir, "rejection_reasons.md")
+_settings_cache = {}
+_default_settings = {
+    "jira": {
+        "base_url": "",
+        "username": "",
+        "api_token": "",
+        "attachment_download_enabled": True,
+        "attachment_parse_enabled": True,
+    },
+    "llm": {
+        "default_model_id": "",
+        "auto_fallback": True,
+        "cache_enabled": True,
+        "api_keys": {"anthropic": "", "gemini": "", "openai": "", "openrouter": ""},
+    },
+    "testrail": {
+        "base_url": "",
+        "username": "",
+        "api_key": "",
+        "push_only_approved": True,
+        "overwrite_duplicates": False,
+    },
+    "behavior": {
+        "default_test_types": ["functional", "regression", "ui"],
+        "max_cases_per_issue": 10,
+        "output_language": "English",
+        "require_review_before_export": True,
+        "auto_approve_on_regenerate": False,
+        "show_duplicate_hints": True,
+    },
+}
 
 
 def _validate_test_types(test_types):
@@ -118,6 +157,7 @@ def _store_latest_cases(cases):
     with _latest_lock:
         _latest_cases.clear()
         _latest_cases.extend(cases)
+    _persist_latest_cases()
 
 
 def _normalize_reviewed_case(raw_case):
@@ -175,6 +215,25 @@ def _read_latest_cases(exportable_only=False):
     return [case for case in snapshot if str(case.get("review_status", "approved")).lower() != "rejected"]
 
 
+def _read_cases_by_status(status: str) -> list:
+    normalized = str(status or "").strip().lower()
+    cases = _read_latest_cases(exportable_only=False)
+    if normalized in {"approved", "pending", "rejected"}:
+        return [case for case in cases if str(case.get("review_status", "")).lower() == normalized]
+    return cases
+
+
+def _load_persisted_state():
+    with _latest_lock:
+        _latest_cases.clear()
+        _latest_cases.extend(_load_json(_latest_cases_file, []))
+    with _activity_lock:
+        _activity_log.clear()
+        _activity_log.extend(_load_json(_activity_log_file, []))
+    settings = _load_settings()
+    _apply_runtime_settings(settings)
+
+
 def _compute_counts(cases):
     counts = {"total": 0, "pending": 0, "approved": 0, "rejected": 0}
     for case in cases:
@@ -193,6 +252,132 @@ def _log_activity(message, category="system"):
     with _activity_lock:
         _activity_log.insert(0, entry)
         del _activity_log[50:]
+    _persist_activity_log()
+
+
+def _ensure_storage_dir():
+    if not os.path.isdir(_storage_dir):
+        os.makedirs(_storage_dir, exist_ok=True)
+
+
+def _load_json(path, fallback):
+    try:
+        if not os.path.isfile(path):
+            return fallback
+        with open(path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return fallback
+
+
+def _save_json(path, payload):
+    try:
+        _ensure_storage_dir()
+        temp_path = f"{path}.tmp"
+        with open(temp_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=True, indent=2)
+        os.replace(temp_path, path)
+    except OSError:
+        logger.warning("Failed to persist data to %s", path)
+
+
+def _persist_latest_cases():
+    with _latest_lock:
+        snapshot = list(_latest_cases)
+    _save_json(_latest_cases_file, snapshot)
+
+
+def _persist_activity_log():
+    with _activity_lock:
+        snapshot = list(_activity_log)
+    _save_json(_activity_log_file, snapshot)
+
+
+def _log_rejection(test_case_id, reason):
+    if not reason.strip():
+        return
+    try:
+        with open(_rejection_log_file, "a", encoding="utf-8") as f:
+            f.write(f"## Test Case {test_case_id}\n")
+            f.write(f"**Date:** {datetime.now().isoformat()}\n")
+            f.write(f"**Reason:** {reason}\n\n")
+    except Exception as e:
+        logger.warning(f"Failed to log rejection for {test_case_id}: {e}")
+
+
+def _deep_merge(base, updates):
+    merged = dict(base)
+    for key, value in (updates or {}).items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged.get(key, {}), value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _load_settings():
+    with _settings_lock:
+        if _settings_cache:
+            return dict(_settings_cache)
+        stored = _load_json(_settings_file, {})
+        merged = _deep_merge(_default_settings, stored)
+        _settings_cache.update(merged)
+        return dict(_settings_cache)
+
+
+def _save_settings(updates):
+    with _settings_lock:
+        if _settings_cache:
+            base = dict(_settings_cache)
+        else:
+            stored = _load_json(_settings_file, {})
+            base = _deep_merge(_default_settings, stored)
+        merged = _deep_merge(base, updates or {})
+        _settings_cache.clear()
+        _settings_cache.update(merged)
+        _save_json(_settings_file, merged)
+        return dict(_settings_cache)
+
+
+def _setting_value(value, fallback):
+    return value if str(value or "").strip() else fallback
+
+
+def _apply_runtime_settings(settings):
+    jira = settings.get("jira", {}) if isinstance(settings, dict) else {}
+    llm = settings.get("llm", {}) if isinstance(settings, dict) else {}
+    testrail = settings.get("testrail", {}) if isinstance(settings, dict) else {}
+
+    jira_service.update_settings(
+        base_url=_setting_value(jira.get("base_url"), Config.JIRA_BASE_URL),
+        username=_setting_value(jira.get("username"), Config.JIRA_USERNAME),
+        api_token=_setting_value(jira.get("api_token"), Config.JIRA_API_TOKEN),
+        attachment_download_enabled=bool(jira.get("attachment_download_enabled", True)),
+        attachment_parse_enabled=bool(jira.get("attachment_parse_enabled", True)),
+    )
+
+    api_keys = llm.get("api_keys", {}) if isinstance(llm.get("api_keys", {}), dict) else {}
+    llm_engine.llm.gemini_api_key = _setting_value(api_keys.get("gemini"), Config.GEMINI_API_KEY)
+    llm_engine.llm.openai_api_key = _setting_value(api_keys.get("openai"), Config.OPENAI_API_KEY)
+    llm_engine.llm.anthropic_api_key = _setting_value(api_keys.get("anthropic"), Config.ANTHROPIC_API_KEY)
+    llm_engine.llm.openrouter_api_key = _setting_value(api_keys.get("openrouter"), Config.OPENROUTER_API_KEY)
+    llm_engine.llm.default_model_id = _setting_value(llm.get("default_model_id"), Config.LLM_DEFAULT_MODEL_ID)
+    llm_engine.llm.auto_fallback = bool(llm.get("auto_fallback", True))
+    llm_engine.llm.cache_enabled = bool(llm.get("cache_enabled", True))
+
+    testrail_service.base_url = _setting_value(testrail.get("base_url"), Config.TESTRAIL_BASE_URL).rstrip("/")
+    testrail_service.username = _setting_value(testrail.get("username"), Config.TESTRAIL_USERNAME).strip()
+    testrail_service.api_key = _setting_value(testrail.get("api_key"), Config.TESTRAIL_API_KEY).strip()
+    testrail_service.password = _setting_value(testrail.get("password"), Config.TESTRAIL_PASSWORD).strip()
+    testrail_service.default_project_id = _setting_value(
+        testrail.get("project_id"), Config.TESTRAIL_PROJECT_ID
+    )
+    testrail_service.default_suite_id = _setting_value(
+        testrail.get("suite_id"), Config.TESTRAIL_SUITE_ID
+    )
+    testrail_service.default_section_id = _setting_value(
+        testrail.get("section_id"), Config.TESTRAIL_SECTION_ID
+    )
 
 
 def _extract_payload():
@@ -209,6 +394,14 @@ def _extract_test_types(payload):
         values = [part.strip() for part in raw.split(",") if part.strip()]
         return values
     return []
+
+
+def _behavior_setting(key, fallback=None):
+    settings = _load_settings()
+    behavior = settings.get("behavior", {}) if isinstance(settings, dict) else {}
+    if key in behavior:
+        return behavior.get(key)
+    return fallback
 
 
 def _extract_include_fields(payload):
@@ -423,14 +616,51 @@ def llm_models():
     models = llm_engine.llm.list_models()
     return jsonify(
         {
-            "default_model_id": Config.LLM_DEFAULT_MODEL_ID,
+            "default_model_id": llm_engine.llm.default_model_id,
             "models": models,
         }
     ), 200
 
 
+@app.get("/settings")
+def get_settings():
+    return jsonify(_load_settings()), 200
+
+
+@app.put("/settings")
+def update_settings():
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Settings payload must be a JSON object"}), 400
+
+    allowed_sections = set(_default_settings.keys())
+    invalid_sections = [key for key in payload.keys() if key not in allowed_sections]
+    if invalid_sections:
+        return (
+            jsonify(
+                {
+                    "error": (
+                        "Invalid settings section(s): "
+                        + ", ".join(sorted(invalid_sections))
+                        + f". Allowed: {', '.join(sorted(allowed_sections))}."
+                    )
+                }
+            ),
+            400,
+        )
+
+    merged = _save_settings(payload)
+    _apply_runtime_settings(merged)
+    return jsonify(merged), 200
+
+
 @app.get("/attachment/file")
 def attachment_file():
+    _apply_runtime_settings(_load_settings())
+    settings = _load_settings()
+    jira_settings = settings.get("jira", {}) if isinstance(settings, dict) else {}
+    if not bool(jira_settings.get("attachment_download_enabled", True)):
+        return jsonify({"error": "Attachment download is disabled in Settings."}), 403
     content_url = str(request.args.get("content_url", "")).strip()
     filename = str(request.args.get("filename", "attachment.bin")).strip() or "attachment.bin"
     mime_type = str(request.args.get("mime_type", "application/octet-stream")).strip()
@@ -471,11 +701,14 @@ def attachment_file():
 
 @app.post("/generate-from-jira")
 def generate_from_jira():
+    _apply_runtime_settings(_load_settings())
     payload = _extract_payload()
     issue_key = str(payload.get("issue_key", "")).strip()
     model_id = str(payload.get("model_id", "")).strip() or "stepfun/step-3.5-flash:free"
     custom_prompt = str(payload.get("custom_prompt", "")).strip()
     test_types = _extract_test_types(payload)
+    if not test_types:
+        test_types = _behavior_setting("default_test_types", Config.DEFAULT_TEST_TYPES)
     include_fields = _extract_include_fields(payload)
     preview_only = bool(payload.get("preview_only", False))
 
@@ -511,13 +744,19 @@ def generate_from_jira():
             }
         ), 200
 
+    output_language = str(_behavior_setting("output_language", "English") or "English")
     test_cases = llm_engine.generate_from_jira_issue(
         issue_data_for_llm,
         parsed_test_types,
         model_id=model_id,
+        output_language=output_language,
     )
+    auto_approve = bool(_behavior_setting("auto_approve_on_regenerate", False))
     for case in test_cases:
-        case.setdefault("review_status", "pending")
+        case.setdefault("review_status", "approved" if auto_approve else "pending")
+    max_cases = int(_behavior_setting("max_cases_per_issue", 0) or 0)
+    if max_cases > 0:
+        test_cases = test_cases[:max_cases]
     _store_latest_cases(test_cases)
     _log_activity(
         f"Generated {len(test_cases)} test case(s) from {issue_data.get('issue_key', issue_key)}.",
@@ -535,6 +774,7 @@ def generate_from_jira():
 
 @app.post("/preview-jira")
 def preview_jira():
+    _apply_runtime_settings(_load_settings())
     payload = request.get_json(silent=True) or {}
     issue_key = str(payload.get("issue_key", "")).strip()
 
@@ -553,6 +793,7 @@ def preview_jira():
 
 @app.post("/manual-generate-test")
 def manual_generate():
+    _apply_runtime_settings(_load_settings())
     payload = _extract_payload()
     description = str(payload.get("description", "")).strip()
     acceptance_criteria = str(payload.get("acceptance_criteria", "")).strip()
@@ -560,6 +801,8 @@ def manual_generate():
     manual_attachments_text = str(payload.get("attachments_text", "")).strip()
     model_id = str(payload.get("model_id", "")).strip() or "stepfun/step-3.5-flash:free"
     test_types = _extract_test_types(payload)
+    if not test_types:
+        test_types = _behavior_setting("default_test_types", Config.DEFAULT_TEST_TYPES)
     uploaded_files = request.files.getlist("attachments") if request.files else []
     parsed_upload_chunks, uploaded_attachment_records = _parse_manual_attachments(uploaded_files)
 
@@ -614,13 +857,19 @@ def manual_generate():
         "attachments": manual_text_attachment + uploaded_attachment_records,
         "custom_fields": {},
     }
+    output_language = str(_behavior_setting("output_language", "English") or "English")
     test_cases = llm_engine.generate_from_jira_issue(
         source,
         parsed_test_types,
         model_id=model_id,
+        output_language=output_language,
     )
+    auto_approve = bool(_behavior_setting("auto_approve_on_regenerate", False))
     for case in test_cases:
-        case.setdefault("review_status", "pending")
+        case.setdefault("review_status", "approved" if auto_approve else "pending")
+    max_cases = int(_behavior_setting("max_cases_per_issue", 0) or 0)
+    if max_cases > 0:
+        test_cases = test_cases[:max_cases]
     _store_latest_cases(test_cases)
     _log_activity(
         f"Generated {len(test_cases)} test case(s) from manual input.",
@@ -638,6 +887,7 @@ def manual_generate():
 
 @app.post("/generate-locators")
 def generate_locators():
+    _apply_runtime_settings(_load_settings())
     payload = _extract_payload()
     dom = str(payload.get("dom", "")).strip()
     framework = str(payload.get("framework", "")).strip()
@@ -722,6 +972,10 @@ def review_queue_update():
     if not updated:
         return jsonify({"error": "test case not found"}), 404
 
+    if review_status == "rejected":
+        _log_rejection(test_case_id, review_note)
+
+    _persist_latest_cases()
     _log_activity(f"{test_case_id} marked {review_status}.", category="review")
     counts = _compute_counts(_read_latest_cases(exportable_only=False))
     counts["all"] = counts["total"]
@@ -740,6 +994,7 @@ def review_queue_approve_all():
                 _latest_cases[idx] = updated_case
                 updated += 1
     if updated:
+        _persist_latest_cases()
         _log_activity(f"Approved {updated} pending test case(s).", category="review")
     counts = _compute_counts(_read_latest_cases(exportable_only=False))
     counts["all"] = counts["total"]
@@ -780,6 +1035,12 @@ def dashboard_metrics():
 
 @app.post("/export-testcases")
 def export_testcases():
+    settings = _load_settings()
+    behavior = settings.get("behavior", {}) if isinstance(settings, dict) else {}
+    if bool(behavior.get("require_review_before_export", True)):
+        pending_cases = _read_cases_by_status("pending")
+        if pending_cases:
+            return jsonify({"error": "Pending review cases must be approved or rejected before export."}), 400
     payload = _extract_payload()
     export_format = str(payload.get("format", "")).strip().lower()
 
@@ -792,6 +1053,12 @@ def export_testcases():
 
 @app.get("/export/excel")
 def export_excel():
+    settings = _load_settings()
+    behavior = settings.get("behavior", {}) if isinstance(settings, dict) else {}
+    if bool(behavior.get("require_review_before_export", True)):
+        pending_cases = _read_cases_by_status("pending")
+        if pending_cases:
+            return jsonify({"error": "Pending review cases must be approved or rejected before export."}), 400
     cases = _read_latest_cases(exportable_only=True)
     if not cases:
         return jsonify({"error": "No exportable test cases found"}), 404
@@ -800,6 +1067,12 @@ def export_excel():
 
 @app.get("/export/pdf")
 def export_pdf():
+    settings = _load_settings()
+    behavior = settings.get("behavior", {}) if isinstance(settings, dict) else {}
+    if bool(behavior.get("require_review_before_export", True)):
+        pending_cases = _read_cases_by_status("pending")
+        if pending_cases:
+            return jsonify({"error": "Pending review cases must be approved or rejected before export."}), 400
     cases = _read_latest_cases(exportable_only=True)
     if not cases:
         return jsonify({"error": "No exportable test cases found"}), 404
@@ -808,6 +1081,12 @@ def export_pdf():
 
 @app.get("/export/gherkin")
 def export_gherkin():
+    settings = _load_settings()
+    behavior = settings.get("behavior", {}) if isinstance(settings, dict) else {}
+    if bool(behavior.get("require_review_before_export", True)):
+        pending_cases = _read_cases_by_status("pending")
+        if pending_cases:
+            return jsonify({"error": "Pending review cases must be approved or rejected before export."}), 400
     cases = _read_latest_cases(exportable_only=True)
     if not cases:
         return jsonify({"error": "No exportable test cases found"}), 404
@@ -816,6 +1095,12 @@ def export_gherkin():
 
 @app.get("/export/plain")
 def export_plain():
+    settings = _load_settings()
+    behavior = settings.get("behavior", {}) if isinstance(settings, dict) else {}
+    if bool(behavior.get("require_review_before_export", True)):
+        pending_cases = _read_cases_by_status("pending")
+        if pending_cases:
+            return jsonify({"error": "Pending review cases must be approved or rejected before export."}), 400
     cases = _read_latest_cases(exportable_only=True)
     if not cases:
         return jsonify({"error": "No exportable test cases found"}), 404
@@ -840,9 +1125,22 @@ def review_testcases():
 
 @app.post("/testrail/push")
 def push_testrail():
+    _apply_runtime_settings(_load_settings())
+    settings = _load_settings()
+    behavior = settings.get("behavior", {}) if isinstance(settings, dict) else {}
+    testrail_settings = settings.get("testrail", {}) if isinstance(settings, dict) else {}
+    if bool(behavior.get("require_review_before_export", True)):
+        pending_cases = _read_cases_by_status("pending")
+        if pending_cases:
+            return jsonify({"error": "Pending review cases must be approved or rejected before TestRail push."}), 400
     cases = _read_latest_cases(exportable_only=True)
     if not cases:
         return jsonify({"error": "No exportable test cases found"}), 404
+
+    if bool(testrail_settings.get("push_only_approved", True)):
+        cases = [case for case in cases if str(case.get("review_status", "")).lower() == "approved"]
+        if not cases:
+            return jsonify({"error": "No approved test cases available to push."}), 404
 
     payload = request.get_json(silent=True) or {}
     selected_test_case_ids_raw = payload.get("selected_test_case_ids")
@@ -926,6 +1224,9 @@ def serve_frontend_assets(asset_path: str):
     if os.path.isfile(requested):
         return send_from_directory(_frontend_dist, asset_path)
     return send_from_directory(_frontend_dist, "index.html")
+
+
+_load_persisted_state()
 
 
 if __name__ == "__main__":

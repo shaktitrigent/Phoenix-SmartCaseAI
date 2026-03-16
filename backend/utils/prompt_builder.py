@@ -7,6 +7,7 @@ def build_generation_prompt(
     test_types: List[str],
     semantic_context: List[Dict],
     knowledge_text: str,
+    output_language: str = "",
 ) -> str:
     attachment_blob = "\n\n".join(issue_data.get("attachments_text", []))
     semantic_blob = "\n".join([item.get("text", "") for item in semantic_context if item.get("text")])
@@ -37,6 +38,7 @@ def build_generation_prompt(
         "test_types": test_types,
     }
 
+    resolved_language = str(output_language or "").strip()
     instructions = [
         "You are a senior QA engineer.",
         "You MUST strictly follow the provided knowledge base policy.",
@@ -47,6 +49,7 @@ def build_generation_prompt(
         "Generate detailed test cases using description, acceptance criteria, and additional custom instructions when provided.",
         "Treat attachment text as requirement input; convert relevant attachment details into test conditions and checks.",
         "If attachment text conflicts with description, prioritize explicit acceptance criteria, then attachment text, then description.",
+        f"Write all output fields in {resolved_language}." if resolved_language else "Write all output fields in English.",
         "Knowledge base policy (MANDATORY):",
         knowledge_text,
         "Return STRICT JSON only.",

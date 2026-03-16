@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import ToastStack from "../components/ToastStack";
 import { exportTestCases, getLatestTestCases, pushToTestRail } from "../services/api";
+import { getFriendlyError } from "../utils/error";
 
 const EXPORT_FORMATS = [
   { id: "excel", label: "Excel" },
@@ -41,7 +42,7 @@ function ExportPublish() {
       setCounts(response?.counts || { total: 0, approved: 0, pending: 0, rejected: 0 });
     } catch (err) {
       if (!silent) {
-        addToast(err?.response?.data?.error || err?.message || "Unable to load summary", "error");
+        addToast(getFriendlyError(err, "Unable to load summary"), "error");
       }
     }
   };
@@ -103,7 +104,7 @@ function ExportPublish() {
         messageText = err.response.data.error;
       }
       setMessage(messageText);
-      addToast(messageText, "error");
+      addToast(getFriendlyError(err, messageText), "error");
     } finally {
       setLoading(false);
     }
@@ -132,7 +133,7 @@ function ExportPublish() {
     } catch (err) {
       const messageText = err?.response?.data?.error || err?.message || "TestRail push failed";
       setMessage(messageText);
-      addToast(messageText, "error");
+      addToast(getFriendlyError(err, messageText), "error");
     } finally {
       setLoading(false);
     }
@@ -177,6 +178,9 @@ function ExportPublish() {
             </div>
             <div className="summary-note">
               Rejected cases will not be included in exports or TestRail pushes.
+            </div>
+            <div className="summary-note">
+              Exports include only approved cases.
             </div>
           </div>
         </div>

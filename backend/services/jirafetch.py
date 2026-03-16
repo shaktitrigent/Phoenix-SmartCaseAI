@@ -17,7 +17,23 @@ class JiraFetchService:
         self.base_url = Config.JIRA_BASE_URL
         self.username = Config.JIRA_USERNAME
         self.api_token = Config.JIRA_API_TOKEN
+        self.attachment_download_enabled = True
+        self.attachment_parse_enabled = True
         self.parser = DocumentParser()
+
+    def update_settings(
+        self,
+        base_url: str,
+        username: str,
+        api_token: str,
+        attachment_download_enabled: bool = True,
+        attachment_parse_enabled: bool = True,
+    ) -> None:
+        self.base_url = (base_url or "").rstrip("/")
+        self.username = str(username or "").strip()
+        self.api_token = str(api_token or "").strip()
+        self.attachment_download_enabled = bool(attachment_download_enabled)
+        self.attachment_parse_enabled = bool(attachment_parse_enabled)
 
     def fetch_issue_details(self, issue_key: str) -> Dict[str, Any]:
         issue_keys = self._parse_issue_keys(issue_key)
@@ -244,6 +260,10 @@ class JiraFetchService:
             if not content_url:
                 parsed_attachments.append(attachment_record)
                 continue
+            if not self.attachment_download_enabled:
+                attachment_record["download_status"] = "download_disabled"
+                parsed_attachments.append(attachment_record)
+                continue
             try:
                 response = requests.get(
                     content_url,
@@ -270,12 +290,15 @@ class JiraFetchService:
                         encoded = base64.b64encode(response.content).decode("ascii")
                         attachment_record["preview_data_url"] = f"data:{mime_type};base64,{encoded}"
 
-                    parsed_text = self.parser.parse_file(tmp.name)
-                    if parsed_text:
-                        attachment_record["parse_status"] = "parsed"
-                        attachment_record["parsed_text"] = parsed_text
+                    if self.attachment_parse_enabled:
+                        parsed_text = self.parser.parse_file(tmp.name)
+                        if parsed_text:
+                            attachment_record["parse_status"] = "parsed"
+                            attachment_record["parsed_text"] = parsed_text
+                        else:
+                            attachment_record["parse_status"] = "empty_or_unsupported"
                     else:
-                        attachment_record["parse_status"] = "empty_or_unsupported"
+                        attachment_record["parse_status"] = "parse_disabled"
                     parsed_attachments.append(attachment_record)
             except Exception:
                 attachment_record["download_status"] = "download_failed"

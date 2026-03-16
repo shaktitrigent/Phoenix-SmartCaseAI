@@ -17,6 +17,7 @@ import {
   submitReviewedTestCases,
   pushToTestRail
 } from "../services/api";
+import { getFriendlyError } from "../utils/error";
 
 const TABS = [
   { id: "jira", label: "🎯 Jira Issue" },
@@ -129,7 +130,7 @@ function Home() {
       setModelUsed(response.model_used || "");
       addToast("Test cases generated successfully.", "success");
     } catch (err) {
-      const message = err?.response?.data?.error || err.message || "Request failed";
+      const message = getFriendlyError(err, "Request failed");
       setTestCases([]);
       setReviewedTestCases([]);
       setSelectedCaseIds([]);
@@ -173,7 +174,7 @@ function Home() {
       } else if (err?.response?.data?.error) {
         message = err.response.data.error;
       }
-      addToast(message, "error");
+      addToast(getFriendlyError(err, message), "error");
     } finally {
       setExportLoading(false);
     }
@@ -210,7 +211,7 @@ function Home() {
       setTestrailSectionUrl(result?.section_url || "");
       addToast(`Push completed: ${created} case(s) created.`, "success");
     } catch (err) {
-      const message = err?.response?.data?.error || err.message || "TestRail push failed";
+      const message = getFriendlyError(err, "TestRail push failed");
       setTestrailLinks([]);
       setTestrailSectionUrl("");
       addToast(message, "error");
@@ -232,7 +233,7 @@ function Home() {
       setLocatorLanguage(payload.language);
       addToast("Locators generated successfully.", "success");
     } catch (err) {
-      const message = err?.response?.data?.error || err.message || "Locator generation failed";
+      const message = getFriendlyError(err, "Locator generation failed");
       setLocatorResult({ locators: [], test_function: "", automation_script: "" });
       addToast(message, "error");
     } finally {
@@ -318,6 +319,9 @@ function Home() {
             testRailConfig={testRailConfig}
             onTestRailConfigChange={handleTestRailConfigChange}
           />
+          {exportableCount ? (
+            <div className="info-chip">Exports include only approved cases.</div>
+          ) : null}
           {exportableCount ? (
             <div className="info-chip">
               Selected for TestRail push: {selectedExportableCaseIds.length} / {exportableCount}

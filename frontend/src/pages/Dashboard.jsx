@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import ToastStack from "../components/ToastStack";
 import { getDashboardMetrics } from "../services/api";
+import { getFriendlyError } from "../utils/error";
 
 const typeColorMap = {
   functional: "var(--blue)",
@@ -42,7 +43,7 @@ function Dashboard() {
       setMetrics(response || null);
     } catch (err) {
       if (!silent) {
-        addToast(err?.response?.data?.error || err?.message || "Unable to load dashboard", "error");
+        addToast(getFriendlyError(err, "Unable to load dashboard"), "error");
       }
     } finally {
       if (!silent) setLoading(false);

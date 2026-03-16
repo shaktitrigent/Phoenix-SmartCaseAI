@@ -20,9 +20,8 @@ export const getLLMModels = async () => {
 };
 
 export const previewJira = async (payload) => {
-  const { data } = await api.post("/generate-from-jira", {
-    issue_key: payload.issue_key,
-    preview_only: true
+  const { data } = await api.post("/preview-jira", {
+    issue_key: payload.issue_key
   });
   return data;
 };

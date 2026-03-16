@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import ToastStack from "../components/ToastStack";
 import { getSettings, updateSettings } from "../services/api";
+import { getFriendlyError } from "../utils/error";
 
 const SETTINGS_TABS = [
   { id: "jira", label: "Jira" },
@@ -135,7 +136,7 @@ function Settings() {
         const response = await getSettings();
         setSettings((prev) => ({ ...prev, ...response }));
       } catch (err) {
-        addToast(err?.response?.data?.error || err?.message || "Unable to load settings", "error");
+        addToast(getFriendlyError(err, "Unable to load settings"), "error");
       } finally {
         setLoading(false);
       }
@@ -155,7 +156,7 @@ function Settings() {
       setSettings((prev) => ({ ...prev, ...response }));
       addToast("Settings saved.", "success");
     } catch (err) {
-      addToast(err?.response?.data?.error || err?.message || "Save failed", "error");
+      addToast(getFriendlyError(err, "Save failed"), "error");
     } finally {
       setLoading(false);
     }
