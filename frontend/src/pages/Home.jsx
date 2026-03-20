@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import ExportButtons from "../components/ExportButtons";
 import IssueDataPanel from "../components/IssueDataPanel";
 import JiraForm from "../components/JiraForm";
@@ -27,11 +27,12 @@ const TABS = [
 const TAB_IDS = new Set(TABS.map((tab) => tab.id));
 const buildExportableCaseIds = (cases = []) =>
   (Array.isArray(cases) ? cases : [])
-    .filter((item) => String(item?.review_status || "approved").toLowerCase() !== "rejected")
+    .filter((item) => String(item?.review_status || "approved").toLowerCase() === "approved")
     .map((item) => String(item?.test_case_id || "").trim())
     .filter(Boolean);
 
 function Home() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("jira");
   const [loading, setLoading] = useState(false);
@@ -52,6 +53,7 @@ function Home() {
   const [testrailLinks, setTestrailLinks] = useState([]);
   const [testrailSectionUrl, setTestrailSectionUrl] = useState("");
   const [selectedCaseIds, setSelectedCaseIds] = useState([]);
+  const [showPushWarning, setShowPushWarning] = useState(false);
   const [testRailConfig, setTestRailConfig] = useState({
     project_id: "",
     suite_id: "",
@@ -60,12 +62,21 @@ function Home() {
   const exportableCaseIds = buildExportableCaseIds(reviewedTestCases);
   const exportableCount = exportableCaseIds.length;
   const selectedExportableCaseIds = exportableCaseIds.filter((id) => selectedCaseIds.includes(id));
+  const pendingCount = reviewedTestCases.filter(
+    (item) => String(item?.review_status || "pending").toLowerCase() === "pending"
+  ).length;
+  const selectedCaseStatusMap = reviewedTestCases.reduce((acc, item) => {
+    const id = String(item?.test_case_id || "").trim();
+    if (!id) return acc;
+    acc[id] = String(item?.review_status || "approved").toLowerCase();
+    return acc;
+  }, {});
   const addToast = (message, type = "info") => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     setToasts((prev) => [...prev, { id, message, type }]);
     window.setTimeout(() => {
       setToasts((prev) => prev.filter((item) => item.id !== id));
-    }, 4500);
+    }, 9000);
   };
 
   const dismissToast = (id) => {
@@ -182,10 +193,21 @@ function Home() {
 
   const handlePushToTestRail = async (repositoryMode, config = {}) => {
     try {
+      if (pendingCount > 0) {
+        addToast("Review pending cases in Review Queue. Only approved cases will be pushed.", "info");
+      }
       if (!selectedExportableCaseIds.length) {
-        addToast("Select at least one test case to push to TestRail.", "error");
+        if (selectedCaseIds.length) {
+          addToast(
+            "Only approved test cases can be pushed. Review pending cases or select approved ones.",
+            "error"
+          );
+        } else {
+          addToast("Select at least one test case to push to TestRail.", "error");
+        }
         return;
       }
+      setShowPushWarning(false);
       setPushLoading(true);
       if (reviewedTestCases.length) {
         await submitReviewedTestCases(reviewedTestCases);
@@ -197,6 +219,9 @@ function Home() {
         section_id: String(config.section_id || "").trim(),
         selected_test_case_ids: selectedExportableCaseIds
       });
+      if (result?.warning) {
+        addToast(result.warning, "info");
+      }
       const created = Number(result?.created || 0);
       const links = Array.isArray(result?.results)
         ? result.results
@@ -251,6 +276,7 @@ function Home() {
   const handleTestCasesChange = (cases) => {
     const normalized = Array.isArray(cases) ? cases : [];
     setReviewedTestCases(normalized);
+    setShowPushWarning(false);
     const nextExportableIds = buildExportableCaseIds(normalized);
     setSelectedCaseIds((prev) => {
       const prevSet = new Set((Array.isArray(prev) ? prev : []).map((item) => String(item).trim()));
@@ -261,9 +287,29 @@ function Home() {
 
   const handleTabChange = (nextTab) => {
     setActiveTab(nextTab);
+    setShowPushWarning(false);
     const params = new URLSearchParams(searchParams);
     params.set("tab", nextTab);
     setSearchParams(params, { replace: true });
+  };
+
+  const validatePushRequest = () => {
+    const hasSelection = selectedCaseIds.length > 0;
+    if (!hasSelection) {
+      setShowPushWarning(true);
+      addToast("Select at least one test case to push to TestRail.", "error");
+      return false;
+    }
+    const selectedStatuses = selectedCaseIds.map((id) => selectedCaseStatusMap[id]);
+    const hasApproved = selectedStatuses.some((status) => status === "approved");
+    const hasUnapproved = selectedStatuses.some((status) => status !== "approved");
+    if (!hasApproved || hasUnapproved) {
+      setShowPushWarning(true);
+      addToast("Review pending cases in Review Queue. Only approved cases will be pushed.", "info");
+      return false;
+    }
+    setShowPushWarning(false);
+    return true;
   };
 
   return (
@@ -310,9 +356,12 @@ function Home() {
           {modelUsed ? <div className="info-chip">Model used: {modelUsed}</div> : null}
           <IssueDataPanel sourceData={sourceData} />
           <ExportButtons
-            exportDisabled={!exportableCount || hasPendingEdits}
-            pushDisabled={!selectedExportableCaseIds.length || hasPendingEdits}
+            exportDisabled={false}
+            pushDisabled={false}
             onPushToTestRail={handlePushToTestRail}
+            onRequestPushOpen={validatePushRequest}
+            showPushWarning={showPushWarning}
+            onGoReviewQueue={() => navigate("/review")}
             pushLoading={pushLoading}
             onExport={handleExport}
             exportLoading={exportLoading}

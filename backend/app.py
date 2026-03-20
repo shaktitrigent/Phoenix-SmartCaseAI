@@ -1129,10 +1129,14 @@ def push_testrail():
     settings = _load_settings()
     behavior = settings.get("behavior", {}) if isinstance(settings, dict) else {}
     testrail_settings = settings.get("testrail", {}) if isinstance(settings, dict) else {}
-    if bool(behavior.get("require_review_before_export", True)):
-        pending_cases = _read_cases_by_status("pending")
-        if pending_cases:
-            return jsonify({"error": "Pending review cases must be approved or rejected before TestRail push."}), 400
+    pending_cases = _read_cases_by_status("pending")
+    review_gate = bool(behavior.get("require_review_before_export", True))
+    warning_message = ""
+    if review_gate and pending_cases:
+        warning_message = (
+            "Pending review cases exist. Please review them in Review Queue. "
+            "Only approved cases will be pushed."
+        )
     cases = _read_latest_cases(exportable_only=True)
     if not cases:
         return jsonify({"error": "No exportable test cases found"}), 404
@@ -1212,6 +1216,9 @@ def push_testrail():
         section_id=section_id,
         repository_mode=repository_mode,
     )
+    if warning_message:
+        result["warning"] = warning_message
+        result["pending_review_count"] = len(pending_cases)
     return jsonify(result), 200
 
 

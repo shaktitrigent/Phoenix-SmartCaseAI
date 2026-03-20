@@ -34,7 +34,7 @@ function ReviewQueue() {
     setToasts((prev) => [...prev, { id, message, type }]);
     window.setTimeout(() => {
       setToasts((prev) => prev.filter((item) => item.id !== id));
-    }, 4500);
+    }, 9000);
   };
 
   const dismissToast = (id) => {

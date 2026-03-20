@@ -1,85 +1,67 @@
-# QA Automation Suite
+# Phoenix SmartCaseAI
 
-Production-ready full-stack application to:
-- fetch issue context (Jira or manual input),
-- generate intelligent QA test cases with LLMs,
-- generate automation locators and runnable test templates,
-- review/edit/approve/reject generated test cases,
-- track review queue + dashboard metrics,
-- export outputs,
-- push generated test cases to TestRail.
+Production-ready QA automation suite to generate, review, export, and publish test cases using LLMs.
+
+## Contents
+
+- Overview
+- Features
+- Tech Stack
+- Project Structure
+- Setup
+- Configuration
+- API Reference
+- Notes
+
+## Overview
+
+This app helps QA teams:
+- Generate test cases from Jira issues or manual input
+- Generate automation locators and runnable templates
+- Review, edit, approve, and reject test cases
+- Export outputs in multiple formats
+- Push approved cases to TestRail
+- Track review and dashboard metrics
+
+## Features
+
+### Test Case Generation
+- **Jira Issue**: fetch issue details and attachments
+- **Manual Input**: description, acceptance criteria, and attachments
+- Configurable test types and model selection
+
+### Locator Generation
+- Input DOM/HTML
+- Framework: `Selenium` or `Playwright`
+- Language: `Python`, `TypeScript`, `Java`
+- Optional custom instructions
+- Outputs structured locators + runnable template
+
+### Review Workflow
+- Inline edits with per-case status: `approved`, `pending`, `rejected`
+- Review Queue with bulk approve and reviewer notes
+- Rejected cases are excluded from export and TestRail push
+
+### Export & TestRail
+- Export: Excel, PDF, Gherkin, Plain Text, CSV, JSON
+- TestRail push modes:
+  - `single_repository`
+  - `single_repository_with_baseline`
+  - `multiple_test_suites`
+
+### UX
+- Sticky top navigation
+- Dark/Light mode toggle (persisted)
+- Toast notifications + loading overlay
+- Dashboard metrics and recent activity
 
 ## Tech Stack
 
 - Backend: Flask
 - Frontend: React + Vite
-- LLM Providers: Gemini, OpenAI, Anthropic, OpenRouter, local llama (`llama-cpp-python`), fallback
+- LLM providers: Gemini, OpenAI, Anthropic, OpenRouter, local llama (`llama-cpp-python`), fallback
 - Embeddings/RAG: `sentence-transformers` + `faiss-cpu`
 - Exports: Excel, PDF, Gherkin, Plain Text, CSV, JSON
-
-## Key Features
-
-### 1. Test Case Generation
-
-- **Tab 1: Jira Issue**
-  - Fetches Jira issue details + attachments
-  - Generates structured test cases by selected test types
-- **Tab 2: Manual Input**
-  - Accepts description, acceptance criteria, optional prompt, and file uploads
-  - Generates structured test cases without Jira dependency
-
-### 2. Locator Generation
-
-- **Tab 3: Generate Locators**
-  - Input DOM/HTML
-  - Select automation framework (`Selenium` or `Playwright`)
-  - Select language (`Python`, `TypeScript`, `Java`)
-  - Optional custom locator instructions
-  - Returns:
-    - structured locator JSON
-    - generated runnable test template
-
-### 3. Review, Export, and TestRail
-
-- Review workflow:
-  - Inline edit for generated test cases
-  - Per-case status: `approved`, `pending`, `rejected`
-  - Review queue UI with bulk approve + reviewer notes
-  - Manual edit metadata tracked (`is_edited`, `edited_fields`, `last_edited_at`, `last_edited_by`)
-  - Rejected cases are excluded from export and TestRail push
-- Export dropdown:
-  - Export All
-  - Export as Plain Text
-  - Export as Gherkin
-  - Export as PDF
-  - Export as Excel
-- Push to TestRail dropdown modes:
-  - `single_repository`
-  - `single_repository_with_baseline`
-  - `multiple_test_suites`
-
-### 4. UX
-
-- Sticky top navigation
-- Dark/Light mode toggle (persisted to `localStorage`)
-- Toast notifications
-- Loading overlay
-- Validation states for required fields
-- Dashboard metrics + recent activity log
-
-## Supported Upload Formats
-
-### Primary formats shown in UI
-
-- `.pdf`, `.docx`, `.txt`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.xml`, `.csv`, `.xlsx`
-
-### Additional formats shown under "More supported formats"
-
-- `.json`, `.md`, `.log`, `.yaml`, `.yml`, `.html`, `.htm`, `.rtf`, `.xls`, `.oc`
-
-Notes:
-- Images are used as metadata context for generation.
-- Some accepted extensions may parse as empty/unsupported depending on file content.
 
 ## Project Structure
 
@@ -99,51 +81,12 @@ frontend/
   src/
 ```
 
-## Architecture Diagram
+## Setup
 
-### Component View
-
-```text
-+---------------------------+              +---------------------------+
-| React + Vite Frontend     |   HTTP/JSON  | Flask Backend             |
-|                           +------------->|                           |
-| - Jira/Manual forms       |              | - app.py routes           |
-| - Locator form            |              | - validation + orchestrat |
-| - Review table            |              | - latest cases store      |
-| - Export / TestRail UI    |              |                           |
-+-------------+-------------+              +-------------+-------------+
-              |                                            |
-              |                                            |
-              v                                            v
-  +-----------+-----------+                   +------------+------------+
-  | Browser download APIs |                   | LLMEngine / LLMService  |
-  | (export files)        |                   | - provider routing       |
-  +-----------------------+                   | - fallback handling      |
-                                              +------------+------------+
-                                                           |
-                                                           v
-                                    +----------------------+----------------------+
-                                    | External Integrations                       |
-                                    | - Jira API                                  |
-                                    | - OpenRouter / OpenAI / Gemini / Anthropic |
-                                    | - TestRail API                              |
-                                    +---------------------------------------------+
-```
-
-### Request Flow (Test Case Path)
-
-```text
-User -> Frontend Form -> /generate-from-jira or /manual-generate-test
-     -> Flask app.py -> LLMEngine -> LLMService(provider/model)
-     -> Parsed test cases -> Frontend editable review table
-     -> /review-testcases (sync edits + statuses)
-     -> /export-testcases OR /testrail/push (rejected excluded)
-```
-
-## Backend Setup (Windows)
+### Backend (Windows)
 
 1. Open terminal in `backend/`
-2. Create and activate venv:
+2. Create and activate a venv:
    ```bash
    python -m venv .venv
    .venv\Scripts\activate
@@ -160,7 +103,7 @@ User -> Frontend Form -> /generate-from-jira or /manual-generate-test
    ```bash
    copy .env.example .env
    ```
-6. Fill environment values (minimum):
+6. Fill required environment values:
    - `JIRA_BASE_URL`
    - `JIRA_USERNAME`
    - `JIRA_API_TOKEN`
@@ -171,7 +114,7 @@ User -> Frontend Form -> /generate-from-jira or /manual-generate-test
 
 Backend default: `http://localhost:5000`
 
-## Frontend Setup
+### Frontend
 
 1. Open terminal in `frontend/`
 2. Install dependencies:
@@ -185,14 +128,11 @@ Backend default: `http://localhost:5000`
 
 Frontend default: `http://localhost:5173`
 
-### Dev proxy
+### Dev Proxy
 
-The Vite dev server proxies API routes to the Flask backend. If you add new endpoints,
-update `frontend/vite.config.js` to include them.
+The Vite dev server proxies API routes to Flask. If you add new endpoints, update `frontend/vite.config.js`.
 
-## Environment Templates
-
-Use templates only, and never commit real keys/tokens.
+## Configuration
 
 ### Backend `.env` template
 
@@ -242,19 +182,9 @@ TESTRAIL_PASSWORD=your_testrail_password
 TESTRAIL_PROJECT_ID=your_testrail_project_id
 TESTRAIL_SUITE_ID=your_testrail_suite_id
 TESTRAIL_SECTION_ID=your_testrail_section_id
+
 EMBEDDING_MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
 ```
-
-### Knowledge Base Files (Mandatory)
-
-The app injects these files into prompts and treats them as mandatory policy for generation:
-
-- `backend/knowledge/test-cases-knowledge.md` for test case generation
-- `backend/knowledge/weblocator-knowledge.md` for locator generation
-
-To update behavior later, edit/replace these two files directly. No code changes are required.
-
-If either file is missing/empty, generation returns an error.
 
 ### Frontend `.env` template
 
@@ -262,25 +192,19 @@ If either file is missing/empty, generation returns an error.
 VITE_API_BASE_URL=http://localhost:5000
 ```
 
-## Store API Keys in GitHub Secrets
+### Required Knowledge Base Files
 
-Do not store real API keys in tracked files. Keep secrets in GitHub repository secrets:
+The app injects these files into prompts and treats them as mandatory policy for generation:
+- `backend/knowledge/test-cases-knowledge.md` for test case generation
+- `backend/knowledge/weblocator-knowledge.md` for locator generation
 
-1. Open GitHub repo -> `Settings` -> `Secrets and variables` -> `Actions`.
-2. Add secrets for your backend keys, for example:
-   - `JIRA_BASE_URL`
-   - `JIRA_USERNAME`
-   - `JIRA_API_TOKEN`
-   - `GEMINI_API_KEY`
-   - `OPENAI_API_KEY`
-   - `ANTHROPIC_API_KEY`
-   - `OPENROUTER_API_KEY`
-   - `TESTRAIL_BASE_URL`
-   - `TESTRAIL_USERNAME`
-   - `TESTRAIL_API_KEY`
-3. In GitHub Actions workflow, generate `backend/.env` from secrets at runtime.
+If either file is missing or empty, generation returns an error.
 
-Example step:
+### Store API Keys in GitHub Secrets
+
+Do not store real keys in the repo. Use GitHub secrets and generate `backend/.env` at runtime.
+
+Example GitHub Actions step:
 
 ```yaml
 - name: Create backend .env from GitHub Secrets
@@ -308,57 +232,9 @@ Example step:
     EOF
 ```
 
-## Environment Variables (Backend)
-
-### Core
-
-- `FLASK_ENV`, `FLASK_DEBUG`, `SECRET_KEY`
-- `CORS_ORIGINS`
-- `EXPORT_DIR`
-
-### Jira
-
-- `JIRA_BASE_URL`
-- `JIRA_USERNAME`
-- `JIRA_API_TOKEN`
-
-### LLM
-
-- `LLM_PROVIDER` (`auto|gemini|openai|anthropic|openrouter|llama|fallback`)
-- `LLM_DEFAULT_MODEL_ID`
-- `LLM_TIMEOUT_SECONDS`
-- `LLM_MODEL_PATH` (for local llama)
-
-### Provider keys/models
-
-- Gemini: `GEMINI_API_KEY`, `GEMINI_MODEL`
-- OpenAI: `OPENAI_API_KEY`, `OPENAI_MINI_MODEL`
-- Anthropic: `ANTHROPIC_API_KEY`, `CLAUDE_SONNET_MODEL`
-- OpenRouter: `OPENROUTER_API_KEY`, `OPENROUTER_BASE_URL` (free-tier model allowlist enforced in backend)
-  - Allowed free models: `deepseek/deepseek-chat`, `deepseek/deepseek-coder`, `meta-llama/llama-3-8b-instruct`, `meta-llama/llama-3-70b-instruct`, `mistralai/mistral-7b-instruct`, `mistralai/mixtral-8x7b-instruct`
-
-### Active model catalog (UI)
-
-- Gemini 2.5 Flash
-- OpenAI GPT-4.1 Mini
-- Claude 3.7 Sonnet
-- OpenRouter free models (allowlist above)
-- Local Llama (GGUF)
-- Rule-based fallback
-
-### TestRail
-
-- `TESTRAIL_BASE_URL`
-- `TESTRAIL_USERNAME`
-- `TESTRAIL_API_KEY` (or fallback `TESTRAIL_PASSWORD`)
-- `TESTRAIL_PROJECT_ID`
-- `TESTRAIL_SUITE_ID` (optional)
-- `TESTRAIL_SECTION_ID`
-
-## API Endpoints
+## API Reference
 
 ### Health and metadata
-
 - `GET /health`
 - `GET /llm-models`
 - `GET /dashboard/metrics`
@@ -366,7 +242,6 @@ Example step:
 - `GET /review-queue?status=all|pending|approved|rejected`
 
 ### Generation
-
 - `POST /generate-from-jira`
 - `POST /manual-generate-test`
 - `POST /generate-locators`
@@ -375,7 +250,6 @@ Example step:
 - `POST /review-queue/approve-all`
 
 ### Exports
-
 - `POST /export-testcases` with body `{ "format": "<format>" }`
   - supported: `excel`, `pdf`, `gherkin`, `plain`, `csv`, `json`
   - exports only non-rejected cases
@@ -384,86 +258,17 @@ Example step:
   - `GET /export/pdf`
   - `GET /export/gherkin`
   - `GET /export/plain`
-  - each exports only non-rejected cases
 
 ### Attachments
-
 - `GET /attachment/file`
 
 ### TestRail
-
 - `POST /testrail/push`
   - pushes only non-rejected cases
   - requires TestRail configuration (base URL, username, API key/password, section_id)
 
-## Review Workflow API
-
-### Request (`POST /review-testcases`)
-
-```json
-{
-  "test_cases": [
-    {
-      "test_case_id": "TC-001",
-      "title": "Updated title",
-      "preconditions": "User has valid account",
-      "steps": ["Open page", "Perform action", "Validate output"],
-      "expected_result": "Expected behavior is observed",
-      "test_type": "functional",
-      "priority": "High",
-      "review_status": "approved",
-      "is_edited": true,
-      "edited_fields": ["title", "steps"],
-      "last_edited_at": "2026-03-05T11:00:00Z",
-      "last_edited_by": "manual"
-    }
-  ]
-}
-```
-
-### Response
-
-```json
-{
-  "status": "ok",
-  "stored": 1,
-  "exportable": 1
-}
-```
-
-## Locator Generation Request/Response
-
-### Request (`POST /generate-locators`)
-
-```json
-{
-  "dom": "<html>...</html>",
-  "framework": "Selenium",
-  "language": "Python",
-  "custom_prompt": "Prefer data-testid",
-  "model_id": "gemini-2.5-flash"
-}
-```
-
-### Response
-
-```json
-{
-  "locators": [
-    {
-      "element": "Login Button",
-      "primary_locator": "...",
-      "alternate_locator": "...",
-      "strategy": "CSS Selector"
-    }
-  ],
-  "test_template": "Complete runnable test file",
-  "model_used": "gemini:gemini-2.5-flash"
-}
-```
-
 ## Notes
 
 - Credentials and API keys stay backend-side only.
-- In `auto` mode, backend tries available provider chain then fallback.
+- In `auto` mode, the backend tries the provider chain and falls back if needed.
 - If no model/API key is available, deterministic fallback generation is used.

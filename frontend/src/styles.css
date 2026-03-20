@@ -365,6 +365,10 @@ body {
   overflow: visible;
 }
 
+.card.export-format-card {
+  overflow: visible;
+}
+
 .jira-panel-card {
   padding: 0;
 }
@@ -759,6 +763,59 @@ body {
   width: fit-content;
 }
 
+.warning-chip {
+  background: var(--amber-bg);
+  color: var(--amber);
+  border: 1px solid rgba(210, 153, 34, 0.2);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.warning-chip button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  margin: 0 0 0 6px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.warning-box {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(210, 153, 34, 0.35);
+  background: rgba(210, 153, 34, 0.08);
+  color: var(--amber);
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  max-width: 360px;
+}
+
+.warning-box p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.warning-box button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  white-space: nowrap;
+}
+
 input,
 textarea,
 select {
@@ -949,6 +1006,8 @@ select {
 .testrail-dropdown {
   min-width: 320px;
   max-width: min(92vw, 460px);
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
 }
 
 .testrail-config-grid {

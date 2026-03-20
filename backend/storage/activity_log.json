@@ -1,5 +1,85 @@
 [
   {
+    "message": "Generated 4 test case(s) from CDM-185.",
+    "category": "generation"
+  },
+  {
+    "message": "Generated locators from provided DOM.",
+    "category": "locators"
+  },
+  {
+    "message": "Approved 6 pending test case(s).",
+    "category": "review"
+  },
+  {
+    "message": "Generated 6 test case(s) from CDM-163.",
+    "category": "generation"
+  },
+  {
+    "message": "Generated 3 test case(s) from CDM-187.",
+    "category": "generation"
+  },
+  {
+    "message": "TC-001 marked approved.",
+    "category": "review"
+  },
+  {
+    "message": "Generated 3 test case(s) from CDM-193.",
+    "category": "generation"
+  },
+  {
+    "message": "Generated 3 test case(s) from CDM-190.",
+    "category": "generation"
+  },
+  {
+    "message": "Generated 2 test case(s) from CDM-185.",
+    "category": "generation"
+  },
+  {
+    "message": "Generated 3 test case(s) from CDM-187.",
+    "category": "generation"
+  },
+  {
+    "message": "Approved 4 pending test case(s).",
+    "category": "review"
+  },
+  {
+    "message": "Generated 4 test case(s) from CDM-189.",
+    "category": "generation"
+  },
+  {
+    "message": "Generated 3 test case(s) from CDM-185.",
+    "category": "generation"
+  },
+  {
+    "message": "Generated 3 test case(s) from CDM-187.",
+    "category": "generation"
+  },
+  {
+    "message": "Generated 3 test case(s) from CDM-186.",
+    "category": "generation"
+  },
+  {
+    "message": "Generated 4 test case(s) from CDM-185.",
+    "category": "generation"
+  },
+  {
+    "message": "Generated 3 test case(s) from CDM-184.",
+    "category": "generation"
+  },
+  {
+    "message": "Generated 2 test case(s) from CDM-182.",
+    "category": "generation"
+  },
+  {
+    "message": "Generated 2 test case(s) from CDM-183.",
+    "category": "generation"
+  },
+  {
+    "message": "Generated 2 test case(s) from CDM-185.",
+    "category": "generation"
+  },
+  {
     "message": "TC-002 marked approved.",
     "category": "review"
   },

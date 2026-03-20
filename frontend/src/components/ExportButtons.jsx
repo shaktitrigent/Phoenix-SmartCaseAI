@@ -4,6 +4,9 @@ function ExportButtons({
   exportDisabled,
   pushDisabled,
   onPushToTestRail,
+  onRequestPushOpen,
+  showPushWarning,
+  onGoReviewQueue,
   pushLoading,
   onExport,
   exportLoading,
@@ -88,7 +91,12 @@ function ExportButtons({
             className="btn testrail"
             disabled={pushDisabled || pushLoading}
             data-loading={pushLoading ? "true" : "false"}
-            onClick={() => setTestrailMenuOpen((prev) => !prev)}
+            onClick={() => {
+              if (onRequestPushOpen && !onRequestPushOpen()) {
+                return;
+              }
+              setTestrailMenuOpen((prev) => !prev);
+            }}
             type="button"
           >
             {pushLoading ? "Pushing to TestRail..." : "Push to TestRail"}
@@ -132,6 +140,14 @@ function ExportButtons({
                   {option.label}
                 </button>
               ))}
+            </div>
+          ) : null}
+          {showPushWarning ? (
+            <div className="warning-box">
+              <p>Review pending cases in Review Queue. Only approved cases will be pushed.</p>
+              <button type="button" onClick={onGoReviewQueue}>
+                Go to Review Queue
+              </button>
             </div>
           ) : null}
         </div>
