@@ -132,6 +132,7 @@ _default_settings = {
         "require_review_before_export": True,
         "auto_approve_on_regenerate": False,
         "show_duplicate_hints": True,
+        "stabilize_generation": True,
     },
 }
 
@@ -236,6 +237,50 @@ def _compute_counts(cases):
             status = "approved"
         counts[status] += 1
     return counts
+
+
+def _normalize_generated_case(raw_case):
+    if not isinstance(raw_case, dict):
+        return None
+    case = dict(raw_case)
+    case["test_case_id"] = str(case.get("test_case_id", "")).strip()
+    case["title"] = str(case.get("title", "")).strip()
+    case["preconditions"] = str(case.get("preconditions", "")).strip()
+    case["expected_result"] = str(case.get("expected_result", "")).strip()
+    case["test_type"] = str(case.get("test_type", "")).strip()
+    case["priority"] = str(case.get("priority", "")).strip()
+
+    steps = case.get("steps", [])
+    if isinstance(steps, list):
+        normalized_steps = [str(step).strip() for step in steps if str(step).strip()]
+    elif isinstance(steps, str):
+        normalized_steps = [part.strip() for part in steps.split("\n") if part.strip()]
+    else:
+        normalized_steps = []
+    case["steps"] = normalized_steps
+
+    if not case["expected_result"]:
+        case["expected_result"] = "Expected behavior is observed."
+
+    return case
+
+
+def _dedupe_cases(cases):
+    deduped = []
+    seen = set()
+    for case in cases:
+        title = str(case.get("title", "")).strip().lower()
+        steps = case.get("steps", [])
+        if isinstance(steps, list):
+            steps_text = "\n".join([str(s).strip().lower() for s in steps if str(s).strip()])
+        else:
+            steps_text = str(steps).strip().lower()
+        signature = f"{title}|{steps_text}"
+        if signature in seen:
+            continue
+        seen.add(signature)
+        deduped.append(case)
+    return deduped
 
 
 def _log_activity(message, category="system"):
@@ -734,17 +779,27 @@ def generate_from_jira():
         ), 200
 
     output_language = str(_behavior_setting("output_language", "English") or "English")
+    stabilize = bool(_behavior_setting("stabilize_generation", True))
     test_cases = llm_engine.generate_from_jira_issue(
         issue_data_for_llm,
         parsed_test_types,
         model_id=model_id,
         output_language=output_language,
+        temperature_override=0.0 if stabilize else None,
     )
+    normalized = [_normalize_generated_case(case) for case in test_cases]
+    test_cases = [case for case in normalized if case]
+    test_cases = _dedupe_cases(test_cases)
     auto_approve = bool(_behavior_setting("auto_approve_on_regenerate", False))
     for case in test_cases:
         case.setdefault("review_status", "approved" if auto_approve else "pending")
     max_cases = int(_behavior_setting("max_cases_per_issue", 0) or 0)
     if max_cases > 0:
+        if len(test_cases) > max_cases:
+            _log_activity(
+                f"Truncated {len(test_cases) - max_cases} test case(s) due to max_cases_per_issue.",
+                category="generation",
+            )
         test_cases = test_cases[:max_cases]
     _store_latest_cases(test_cases)
     _log_activity(
@@ -847,17 +902,27 @@ def manual_generate():
         "custom_fields": {},
     }
     output_language = str(_behavior_setting("output_language", "English") or "English")
+    stabilize = bool(_behavior_setting("stabilize_generation", True))
     test_cases = llm_engine.generate_from_jira_issue(
         source,
         parsed_test_types,
         model_id=model_id,
         output_language=output_language,
+        temperature_override=0.0 if stabilize else None,
     )
+    normalized = [_normalize_generated_case(case) for case in test_cases]
+    test_cases = [case for case in normalized if case]
+    test_cases = _dedupe_cases(test_cases)
     auto_approve = bool(_behavior_setting("auto_approve_on_regenerate", False))
     for case in test_cases:
         case.setdefault("review_status", "approved" if auto_approve else "pending")
     max_cases = int(_behavior_setting("max_cases_per_issue", 0) or 0)
     if max_cases > 0:
+        if len(test_cases) > max_cases:
+            _log_activity(
+                f"Truncated {len(test_cases) - max_cases} test case(s) due to max_cases_per_issue.",
+                category="generation",
+            )
         test_cases = test_cases[:max_cases]
     _store_latest_cases(test_cases)
     _log_activity(

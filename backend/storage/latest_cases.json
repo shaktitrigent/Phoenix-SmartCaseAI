@@ -1,136 +1,142 @@
 [
   {
-    "title": "Successful Credit Card Payment with Valid Details",
-    "preconditions": "User is logged in and has items in the shopping cart. User is on the checkout page with the credit card payment option selected. A valid test credit card (Visa/MasterCard/AMEX) is available with sufficient funds.",
+    "title": "Successful payment with valid credit card details",
+    "preconditions": "User is logged in and has items in the cart. User is on the checkout page.",
     "steps": [
-      "Enter valid credit card number, expiration date, and CVV in the respective fields.",
-      "Click the 'Pay Now' or 'Complete Purchase' button."
+      "User selects \"Credit Card\" as payment method.",
+      "User enters valid credit card number, expiry date, CVV, and cardholder name.",
+      "User clicks \"Pay Now\" button."
     ],
-    "expected_result": "The system processes the payment successfully. An order confirmation page is displayed with a unique transaction ID. The user receives an order confirmation email.",
+    "expected_result": "- Payment is authorized and captured successfully.\n- Order confirmation page is displayed.\n- A unique transaction ID is generated and displayed.\n- User receives an order confirmation email.",
     "test_type": "functional",
     "priority": "High",
     "test_case_id": "TC-001",
-    "review_status": "approved",
-    "review_note": ""
+    "review_status": "pending"
   },
   {
-    "title": "Payment Fails with Invalid Credit Card Number",
-    "preconditions": "User is on the checkout page with the credit card payment option selected.",
+    "title": "Payment fails with invalid credit card number",
+    "preconditions": "User is logged in and has items in the cart. User is on the checkout page.",
     "steps": [
-      "Enter an invalid credit card number (e.g., incorrect length, invalid checksum) into the card number field.",
-      "Enter valid expiration date and CVV.",
-      "Click the 'Pay Now' or 'Complete Purchase' button."
+      "User selects \"Credit Card\" as payment method.",
+      "User enters an invalid credit card number (e.g., incorrect length, invalid Luhn algorithm check), valid expiry date, valid CVV, and cardholder name.",
+      "User clicks \"Pay Now\" button."
     ],
-    "expected_result": "An error message 'Invalid card number' or similar is displayed below the card number field. The payment is not processed, and the user remains on the checkout page.",
+    "expected_result": "- An error message \"Invalid card number\" is displayed.\n- Payment is not processed.\n- User remains on the checkout page.",
     "test_type": "functional",
     "priority": "High",
     "test_case_id": "TC-002",
     "review_status": "pending"
   },
   {
-    "title": "Payment Fails with Expired Credit Card",
-    "preconditions": "User is on the checkout page with the credit card payment option selected. An expired test credit card is available.",
+    "title": "Payment fails with an expired credit card",
+    "preconditions": "User is logged in and has items in the cart. User is on the checkout page.",
     "steps": [
-      "Enter a valid credit card number, an expired expiration date, and a valid CVV.",
-      "Click the 'Pay Now' or 'Complete Purchase' button."
+      "User selects \"Credit Card\" as payment method.",
+      "User enters a valid credit card number, an expired expiry date, valid CVV, and cardholder name.",
+      "User clicks \"Pay Now\" button."
     ],
-    "expected_result": "An error message 'Expired card' or similar is displayed. The payment is rejected, and the user remains on the checkout page.",
+    "expected_result": "- An error message \"Expired card\" or \"Card has expired\" is displayed.\n- Payment is rejected.\n- User remains on the checkout page.",
     "test_type": "functional",
     "priority": "High",
     "test_case_id": "TC-003",
     "review_status": "pending"
   },
   {
-    "title": "Payment Fails Due to Insufficient Funds",
-    "preconditions": "User is on the checkout page with the credit card payment option selected. A test credit card with insufficient funds (or configured to simulate this) is available.",
+    "title": "Payment declines due to insufficient funds",
+    "preconditions": "User is logged in and has items in the cart. User is on the checkout page. Test environment configured to simulate insufficient funds for a specific card.",
     "steps": [
-      "Enter valid credit card number, expiration date, and CVV for the card with insufficient funds.",
-      "Click the 'Pay Now' or 'Complete Purchase' button."
+      "User selects \"Credit Card\" as payment method.",
+      "User enters valid credit card details for a card with insufficient funds.",
+      "User clicks \"Pay Now\" button."
     ],
-    "expected_result": "A decline message 'Insufficient funds' or similar is displayed. The payment is rejected, and the user remains on the checkout page.",
+    "expected_result": "- A decline message \"Insufficient funds\" or \"Payment declined\" is displayed.\n- Payment is not processed.\n- User remains on the checkout page.",
     "test_type": "functional",
     "priority": "High",
     "test_case_id": "TC-004",
     "review_status": "pending"
   },
   {
-    "title": "Payment Gateway Timeout Offers Retry Option",
-    "preconditions": "User is on the checkout page with the credit card payment option selected. The payment gateway is configured to simulate a timeout scenario.",
+    "title": "Payment gateway timeout offers retry option",
+    "preconditions": "User is logged in and has items in the cart. User is on the checkout page. Payment gateway configured to simulate a timeout.",
     "steps": [
-      "Enter valid credit card details.",
-      "Click the 'Pay Now' or 'Complete Purchase' button.",
-      "Wait for the simulated timeout."
+      "User selects \"Credit Card\" as payment method.",
+      "User enters valid credit card details.",
+      "User clicks \"Pay Now\" button.",
+      "Wait for payment gateway timeout."
     ],
-    "expected_result": "A message indicating a payment processing error or timeout is displayed. A 'Retry Payment' or similar option is presented to the user. The user can attempt the payment again.",
+    "expected_result": "- An error message indicating a timeout (e.g., \"Payment gateway unresponsive, please try again\") is displayed.\n- A \"Retry Payment\" option is presented to the user.\n- Payment is not processed.",
     "test_type": "functional",
-    "priority": "High",
+    "priority": "Medium",
     "test_case_id": "TC-005",
     "review_status": "pending"
   },
   {
-    "title": "Payment Fails with Invalid CVV",
-    "preconditions": "User is on the checkout page with the credit card payment option selected.",
+    "title": "Payment fails with invalid CVV",
+    "preconditions": "User is logged in and has items in the cart. User is on the checkout page.",
     "steps": [
-      "Enter a valid credit card number and expiration date.",
-      "Enter an invalid CVV (e.g., incorrect length, non-numeric) into the CVV field.",
-      "Click the 'Pay Now' or 'Complete Purchase' button."
+      "User selects \"Credit Card\" as payment method.",
+      "User enters valid credit card number, valid expiry date, an invalid CVV (e.g., incorrect length or value), and cardholder name.",
+      "User clicks \"Pay Now\" button."
     ],
-    "expected_result": "A validation error message 'Invalid CVV' or similar is displayed below the CVV field. The payment is not processed, and the user remains on the checkout page.",
+    "expected_result": "- A validation error message \"Invalid CVV\" or \"Please check your CVV\" is displayed.\n- Payment is not processed.\n- User remains on the checkout page.",
     "test_type": "functional",
     "priority": "High",
     "test_case_id": "TC-006",
     "review_status": "pending"
   },
   {
-    "title": "System Prevents Duplicate Payment Submission",
-    "preconditions": "User is on the checkout page with the credit card payment option selected. A valid test credit card is available.",
+    "title": "System prevents duplicate payment submission",
+    "preconditions": "User is logged in and has items in the cart. User is on the checkout page.",
     "steps": [
-      "Enter valid credit card details.",
-      "Rapidly click the 'Pay Now' or 'Complete Purchase' button multiple times (e.g., double-click)."
+      "User selects \"Credit Card\" as payment method.",
+      "User enters valid credit card details.",
+      "User rapidly clicks \"Pay Now\" button multiple times (e.g., double click)."
     ],
-    "expected_result": "Only one payment transaction is processed successfully. The system prevents duplicate charges for the same order. A single order confirmation is displayed.",
-    "test_type": "regression",
+    "expected_result": "- Only one payment transaction is initiated and processed successfully.\n- The \"Pay Now\" button is disabled or shows a loading state after the first click to prevent subsequent clicks.\n- Order confirmation is displayed once for the single successful payment.",
+    "test_type": "functional",
     "priority": "Medium",
     "test_case_id": "TC-007",
     "review_status": "pending"
   },
   {
-    "title": "System Handles Network Failure During Payment Transaction",
-    "preconditions": "User is on the checkout page with the credit card payment option selected. A valid test credit card is available. Network conditions can be simulated to fail during transaction.",
+    "title": "System handles network failure during payment transaction",
+    "preconditions": "User is logged in and has items in the cart. User is on the checkout page. Test environment configured to simulate a network interruption during payment processing.",
     "steps": [
-      "Enter valid credit card details.",
-      "Click the 'Pay Now' or 'Complete Purchase' button.",
-      "Simulate a network disconnection or failure immediately after submission but before response."
+      "User selects \"Credit Card\" as payment method.",
+      "User enters valid credit card details.",
+      "User clicks \"Pay Now\" button.",
+      "Simulate a network interruption immediately after submission but before payment gateway response."
     ],
-    "expected_result": "The system displays an appropriate error message (e.g., 'Network error, please try again'). The payment is not processed or is marked as failed. The user is given an option to retry or check order status.",
-    "test_type": "regression",
+    "expected_result": "- The system attempts to recover or provides a clear error message (e.g., \"Network error, please check your connection and try again\").\n- The payment status is correctly reflected (e.g., pending, failed, or retried) without creating duplicate orders or charges.\n- User is guided on how to proceed (e.g., retry, check order history).",
+    "test_type": "functional",
     "priority": "Medium",
     "test_case_id": "TC-008",
     "review_status": "pending"
   },
   {
-    "title": "System Handles Partial Payment Success (Auth Success, Capture Failure)",
-    "preconditions": "User is on the checkout page with the credit card payment option selected. A test credit card is configured to allow authorization but fail capture.",
+    "title": "System handles partial payment success (authorization success, capture failure)",
+    "preconditions": "User is logged in and has items in the cart. User is on the checkout page. Payment gateway configured to simulate authorization success but capture failure.",
     "steps": [
-      "Enter valid credit card details for the configured card.",
-      "Click the 'Pay Now' or 'Complete Purchase' button."
+      "User selects \"Credit Card\" as payment method.",
+      "User enters valid credit card details.",
+      "User clicks \"Pay Now\" button."
     ],
-    "expected_result": "The system detects the capture failure. The user is informed that the payment could not be completed and is prompted to try again or use an alternative payment method. The authorization is voided or released, and no funds are captured.",
-    "test_type": "regression",
+    "expected_result": "- The system detects the capture failure.\n- An appropriate error message is displayed to the user (e.g., \"Payment authorized but could not be captured. Please try again or contact support.\").\n- The order status reflects the partial success (e.g., \"Payment Authorized - Capture Failed\").\n- No charge is made to the user's card.",
+    "test_type": "functional",
     "priority": "Medium",
     "test_case_id": "TC-009",
     "review_status": "pending"
   },
   {
-    "title": "Payment Session Expiry Prevents Transaction",
-    "preconditions": "User is logged in and has items in the shopping cart. User is on the checkout page. The payment session timeout is configured to a short duration (e.g., 1 minute) for testing.",
+    "title": "System prevents payment with currency mismatch",
+    "preconditions": "User is logged in and has items in the cart. User is on the checkout page. The system is configured to process payments in a specific currency (e.g., USD).",
     "steps": [
-      "Navigate to the checkout page and select credit card payment.",
-      "Wait for the configured payment session timeout duration without interacting with the payment form.",
-      "Enter valid credit card details and click 'Pay Now'."
+      "User selects \"Credit Card\" as payment method.",
+      "User enters valid credit card details for a card primarily associated with a different currency (e.g., EUR) and attempts to pay for an order in USD.",
+      "User clicks \"Pay Now\" button."
     ],
-    "expected_result": "The system displays a 'Session expired' or 'Payment session invalid' message. The payment is not processed. The user is prompted to refresh the page or restart the checkout process.",
-    "test_type": "regression",
+    "expected_result": "- The system either automatically converts the currency (if supported and configured) or displays an error message \"Currency mismatch\" or \"Payment currency not supported for this card\".\n- Payment is not processed if currency conversion is not supported.",
+    "test_type": "functional",
     "priority": "Medium",
     "test_case_id": "TC-010",
     "review_status": "pending"

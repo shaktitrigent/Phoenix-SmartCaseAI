@@ -1,5 +1,13 @@
 [
   {
+    "message": "Generated 10 test case(s) from DEV-1.",
+    "category": "generation"
+  },
+  {
+    "message": "Truncated 1 test case(s) due to max_cases_per_issue.",
+    "category": "generation"
+  },
+  {
     "message": "TC-001 marked approved.",
     "category": "review"
   },

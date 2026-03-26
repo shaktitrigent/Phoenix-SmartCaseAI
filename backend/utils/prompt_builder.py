@@ -44,6 +44,8 @@ def build_generation_prompt(
         "You MUST strictly follow the provided knowledge base policy.",
         "If user instructions conflict with the knowledge base, follow the knowledge base.",
         "Generate complete and execution-ready test cases.",
+        "Keep output stable and deterministic: avoid synonyms, avoid creative variations, and use consistent phrasing.",
+        "Use a consistent structure and ordering across test cases.",
         "Each test case must include explicit preconditions, 2+ concrete steps, and a clear expected result.",
         "Cover each requested test type with practical steps and expected outcomes.",
         "Generate detailed test cases using description, acceptance criteria, and additional custom instructions when provided.",

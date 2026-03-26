@@ -28,6 +28,7 @@ class LLMEngine:
         test_types: List[str],
         model_id: Optional[str] = None,
         output_language: str = "",
+        temperature_override: Optional[float] = None,
     ) -> List[Dict]:
         searchable_chunks = []
         summary = issue_data.get("summary", "")
@@ -83,7 +84,16 @@ class LLMEngine:
             "source": "\n".join(searchable_chunks),
             "test_types": test_types,
         }
-        raw_response = self.llm.generate_json(prompt, seed_payload, model_id=model_id)
+        original_temperature = self.llm.temperature
+        if temperature_override is not None:
+            try:
+                self.llm.temperature = float(temperature_override)
+            except (TypeError, ValueError):
+                self.llm.temperature = original_temperature
+        try:
+            raw_response = self.llm.generate_json(prompt, seed_payload, model_id=model_id)
+        finally:
+            self.llm.temperature = original_temperature
         self._ensure_strict_model_used()
         cases = parse_test_case_response(raw_response)
         cases = filter_test_cases(cases)
