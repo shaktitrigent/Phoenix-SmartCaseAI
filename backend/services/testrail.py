@@ -110,12 +110,12 @@ class TestRailService:
             if response.status_code == 401:
                 continue
             if response.status_code >= 400:
-                raise ValueError(f"TestRail API error {response.status_code}: {response.text}")
+                self._raise_friendly_error(response)
             return response.json()
 
         if last_response is None:
             raise ValueError("TestRail API error: missing authentication credentials.")
-        raise ValueError(f"TestRail API error {last_response.status_code}: {last_response.text}")
+        self._raise_friendly_error(last_response)
 
     def _get(self, endpoint: str) -> Any:
         url = f"{self.base_url}/index.php?/api/v2/{endpoint}"
@@ -130,12 +130,12 @@ class TestRailService:
             if response.status_code == 401:
                 continue
             if response.status_code >= 400:
-                raise ValueError(f"TestRail API error {response.status_code}: {response.text}")
+                self._raise_friendly_error(response)
             return response.json()
 
         if last_response is None:
             raise ValueError("TestRail API error: missing authentication credentials.")
-        raise ValueError(f"TestRail API error {last_response.status_code}: {last_response.text}")
+        self._raise_friendly_error(last_response)
 
     def _resolve_suite_id(self, project_id: str) -> str:
         try:
@@ -191,6 +191,14 @@ class TestRailService:
             "custom_expected": expected,
             "custom_priority": priority,
         }
+
+    @staticmethod
+    def _raise_friendly_error(response: requests.Response) -> None:
+        body = response.text or ""
+        lowered = body.lower()
+        if "expired-trial" in lowered or "trial has expired" in lowered:
+            raise ValueError("TestRail trial expired — please renew license or switch instance.")
+        raise ValueError(f"TestRail API error {response.status_code}: {body}")
 
     @staticmethod
     def _mock_push(

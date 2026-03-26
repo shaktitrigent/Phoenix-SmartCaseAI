@@ -16,9 +16,8 @@ from werkzeug.exceptions import HTTPException
 from config import Config
 from services.export_service import ExportService
 from services.document_parser import DocumentParser
-from services.jirafetch import JiraFetchService
 from services.llm_engine import LLMEngine
-from services.testrail import TestRailService
+from integrations.registry import get_issue_provider, get_publisher
 
 
 app = Flask(__name__)
@@ -31,18 +30,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger("jira-testcase-app")
 
-jira_service = JiraFetchService()
+issue_provider = get_issue_provider()
+# Backward-compatible alias for legacy references.
+jira_service = issue_provider
 llm_engine = LLMEngine()
 export_service = ExportService(export_dir=Config.EXPORT_DIR)
-testrail_service = TestRailService(
-    base_url=Config.TESTRAIL_BASE_URL,
-    username=Config.TESTRAIL_USERNAME,
-    api_key=Config.TESTRAIL_API_KEY,
-    password=Config.TESTRAIL_PASSWORD,
-    default_project_id=Config.TESTRAIL_PROJECT_ID,
-    default_suite_id=Config.TESTRAIL_SUITE_ID,
-    default_section_id=Config.TESTRAIL_SECTION_ID,
-)
+testrail_publisher = get_publisher()
 document_parser = DocumentParser()
 _frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 
@@ -348,7 +341,7 @@ def _apply_runtime_settings(settings):
     llm = settings.get("llm", {}) if isinstance(settings, dict) else {}
     testrail = settings.get("testrail", {}) if isinstance(settings, dict) else {}
 
-    jira_service.update_settings(
+    issue_provider.update_settings(
         base_url=_setting_value(jira.get("base_url"), Config.JIRA_BASE_URL),
         username=_setting_value(jira.get("username"), Config.JIRA_USERNAME),
         api_token=_setting_value(jira.get("api_token"), Config.JIRA_API_TOKEN),
@@ -365,18 +358,14 @@ def _apply_runtime_settings(settings):
     llm_engine.llm.auto_fallback = bool(llm.get("auto_fallback", True))
     llm_engine.llm.cache_enabled = bool(llm.get("cache_enabled", True))
 
-    testrail_service.base_url = _setting_value(testrail.get("base_url"), Config.TESTRAIL_BASE_URL).rstrip("/")
-    testrail_service.username = _setting_value(testrail.get("username"), Config.TESTRAIL_USERNAME).strip()
-    testrail_service.api_key = _setting_value(testrail.get("api_key"), Config.TESTRAIL_API_KEY).strip()
-    testrail_service.password = _setting_value(testrail.get("password"), Config.TESTRAIL_PASSWORD).strip()
-    testrail_service.default_project_id = _setting_value(
-        testrail.get("project_id"), Config.TESTRAIL_PROJECT_ID
-    )
-    testrail_service.default_suite_id = _setting_value(
-        testrail.get("suite_id"), Config.TESTRAIL_SUITE_ID
-    )
-    testrail_service.default_section_id = _setting_value(
-        testrail.get("section_id"), Config.TESTRAIL_SECTION_ID
+    testrail_publisher.update_settings(
+        base_url=_setting_value(testrail.get("base_url"), Config.TESTRAIL_BASE_URL),
+        username=_setting_value(testrail.get("username"), Config.TESTRAIL_USERNAME),
+        api_key=_setting_value(testrail.get("api_key"), Config.TESTRAIL_API_KEY),
+        password=_setting_value(testrail.get("password"), Config.TESTRAIL_PASSWORD),
+        project_id=_setting_value(testrail.get("project_id"), Config.TESTRAIL_PROJECT_ID),
+        suite_id=_setting_value(testrail.get("suite_id"), Config.TESTRAIL_SUITE_ID),
+        section_id=_setting_value(testrail.get("section_id"), Config.TESTRAIL_SECTION_ID),
     )
 
 
@@ -673,7 +662,7 @@ def attachment_file():
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         return jsonify({"error": "Invalid content_url"}), 400
 
-    jira_host = urlparse(jira_service.base_url).hostname or ""
+    jira_host = urlparse(issue_provider.base_url).hostname or ""
     host = parsed.hostname or ""
     allowed = (
         (jira_host and host == jira_host)
@@ -685,7 +674,7 @@ def attachment_file():
 
     response = requests.get(
         content_url,
-        auth=(jira_service.username, jira_service.api_token),
+        auth=(issue_provider.username, issue_provider.api_token),
         timeout=60,
     )
     if response.status_code >= 400:
@@ -721,7 +710,7 @@ def generate_from_jira():
         if not valid:
             return jsonify({"error": parsed_test_types}), 400
 
-    issue_data = jira_service.fetch_issue_details(issue_key=issue_key)
+    issue_data = issue_provider.fetch_issue(issue_key=issue_key)
     if custom_prompt:
         issue_data["custom_prompt"] = custom_prompt
     issue_data_for_llm = _apply_include_fields(issue_data, include_fields)
@@ -781,7 +770,7 @@ def preview_jira():
     if not issue_key:
         return jsonify({"error": "issue_key is required"}), 400
 
-    issue_data = jira_service.fetch_issue_details(issue_key=issue_key)
+    issue_data = issue_provider.fetch_issue(issue_key=issue_key)
     return jsonify(
         {
             "issue_key": issue_data.get("issue_key", issue_key),
@@ -1194,7 +1183,7 @@ def push_testrail():
             400,
         )
 
-    ready = testrail_service.ready_state(section_id or Config.TESTRAIL_SECTION_ID)
+    ready = testrail_publisher.ready_state(section_id or Config.TESTRAIL_SECTION_ID)
     if not all(ready.values()):
         return (
             jsonify(
@@ -1209,7 +1198,7 @@ def push_testrail():
             400,
         )
 
-    result = testrail_service.push_test_cases(
+    result = testrail_publisher.push_test_cases(
         test_cases=cases,
         project_id=project_id,
         suite_id=suite_id,

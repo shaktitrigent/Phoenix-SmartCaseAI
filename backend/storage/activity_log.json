@@ -1,5 +1,17 @@
 [
   {
+    "message": "TC-001 marked approved.",
+    "category": "review"
+  },
+  {
+    "message": "Generated 10 test case(s) from DEV-1.",
+    "category": "generation"
+  },
+  {
+    "message": "Generated 9 test case(s) from DEV-1.",
+    "category": "generation"
+  },
+  {
     "message": "Generated 4 test case(s) from CDM-185.",
     "category": "generation"
   },

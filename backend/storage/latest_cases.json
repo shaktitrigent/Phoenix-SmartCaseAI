@@ -1,60 +1,138 @@
 [
   {
-    "title": "API - Attempt to create validation record without 'Reason (why and intent)'",
-    "preconditions": "1. API endpoint for creating validation records is accessible.\n2. Authentication token is available.",
+    "title": "Successful Credit Card Payment with Valid Details",
+    "preconditions": "User is logged in and has items in the shopping cart. User is on the checkout page with the credit card payment option selected. A valid test credit card (Visa/MasterCard/AMEX) is available with sufficient funds.",
     "steps": [
-      "Construct an API request payload to create a new validation record.",
-      "Ensure the 'Reason (why and intent)' field is either omitted or sent with an empty/null value in the payload.",
-      "Send the POST request to the validation record creation API endpoint."
+      "Enter valid credit card number, expiration date, and CVV in the respective fields.",
+      "Click the 'Pay Now' or 'Complete Purchase' button."
     ],
-    "expected_result": "The API response should have a status code indicating a client error (e.g., 400 Bad Request).\nThe response body should contain an error message explicitly stating that 'Reason (why and intent)' is a mandatory field.",
+    "expected_result": "The system processes the payment successfully. An order confirmation page is displayed with a unique transaction ID. The user receives an order confirmation email.",
     "test_type": "functional",
     "priority": "High",
     "test_case_id": "TC-001",
-    "review_status": "pending"
+    "review_status": "approved",
+    "review_note": ""
   },
   {
-    "title": "UI - Attempt to create validation record without 'Reason (why and intent)'",
-    "preconditions": "1. User is logged into the application with appropriate permissions.\n2. User is on the page to create a new validation record.",
+    "title": "Payment Fails with Invalid Credit Card Number",
+    "preconditions": "User is on the checkout page with the credit card payment option selected.",
     "steps": [
-      "Fill in all other mandatory fields for creating a validation record.",
-      "Leave the 'Reason (why and intent)' field empty.",
-      "Click the 'Create' or 'Submit' button."
+      "Enter an invalid credit card number (e.g., incorrect length, invalid checksum) into the card number field.",
+      "Enter valid expiration date and CVV.",
+      "Click the 'Pay Now' or 'Complete Purchase' button."
     ],
-    "expected_result": "The application should prevent the creation of the record.\nA mandatory error message, such as 'Reason (why and intent) field is required', should be displayed next to the 'Reason (why and intent)' field or as a general form error.\nThe user should remain on the creation page.",
-    "test_type": "ui",
+    "expected_result": "An error message 'Invalid card number' or similar is displayed below the card number field. The payment is not processed, and the user remains on the checkout page.",
+    "test_type": "functional",
     "priority": "High",
     "test_case_id": "TC-002",
     "review_status": "pending"
   },
   {
-    "title": "API - Update correction record by only removing an existing parameter",
-    "preconditions": "1. API endpoint for creating and updating correction records is accessible.\n2. Authentication token is available.\n3. A correction record exists with at least one parameter (e.g., AXLE-CONFIG = 2X0).",
+    "title": "Payment Fails with Expired Credit Card",
+    "preconditions": "User is on the checkout page with the credit card payment option selected. An expired test credit card is available.",
     "steps": [
-      "Retrieve the existing correction record details via API.",
-      "Construct an API request payload for updating the correction record.",
-      "In the update payload, remove the previously existing parameter (e.g., AXLE-CONFIG = 2X0) without adding any new parameters or features, or modifying any other existing ones.",
-      "Send the PUT/PATCH request to the correction record update API endpoint."
+      "Enter a valid credit card number, an expired expiration date, and a valid CVV.",
+      "Click the 'Pay Now' or 'Complete Purchase' button."
     ],
-    "expected_result": "The API response should have a status code indicating a client error (e.g., 400 Bad Request).\nThe response body should contain an error message: 'At least one Parameter or Feature should be either Added or Removed'.\nThe correction record should not be updated in the system.",
+    "expected_result": "An error message 'Expired card' or similar is displayed. The payment is rejected, and the user remains on the checkout page.",
     "test_type": "functional",
     "priority": "High",
     "test_case_id": "TC-003",
     "review_status": "pending"
   },
   {
-    "title": "UI - Update correction record by only removing an existing parameter",
-    "preconditions": "1. User is logged into the application with appropriate permissions.\n2. A correction record exists with at least one parameter (e.g., AXLE-CONFIG = 2X0).\n3. User is on the page to edit the existing correction record.",
+    "title": "Payment Fails Due to Insufficient Funds",
+    "preconditions": "User is on the checkout page with the credit card payment option selected. A test credit card with insufficient funds (or configured to simulate this) is available.",
     "steps": [
-      "Locate the existing parameter (e.g., AXLE-CONFIG = 2X0) in the correction record.",
-      "Remove this parameter from the record (e.g., by clicking a delete icon next to it).",
-      "Ensure no other parameters or features are added or modified.",
-      "Click the 'Save' or 'Update' button."
+      "Enter valid credit card number, expiration date, and CVV for the card with insufficient funds.",
+      "Click the 'Pay Now' or 'Complete Purchase' button."
     ],
-    "expected_result": "The application should prevent the update of the record.\nAn error message, such as 'At least one Parameter or Feature should be either Added or Removed', should be displayed on the page.\nThe user should remain on the edit page, and the parameter should still be present or the update should be reverted.",
-    "test_type": "ui",
+    "expected_result": "A decline message 'Insufficient funds' or similar is displayed. The payment is rejected, and the user remains on the checkout page.",
+    "test_type": "functional",
     "priority": "High",
     "test_case_id": "TC-004",
+    "review_status": "pending"
+  },
+  {
+    "title": "Payment Gateway Timeout Offers Retry Option",
+    "preconditions": "User is on the checkout page with the credit card payment option selected. The payment gateway is configured to simulate a timeout scenario.",
+    "steps": [
+      "Enter valid credit card details.",
+      "Click the 'Pay Now' or 'Complete Purchase' button.",
+      "Wait for the simulated timeout."
+    ],
+    "expected_result": "A message indicating a payment processing error or timeout is displayed. A 'Retry Payment' or similar option is presented to the user. The user can attempt the payment again.",
+    "test_type": "functional",
+    "priority": "High",
+    "test_case_id": "TC-005",
+    "review_status": "pending"
+  },
+  {
+    "title": "Payment Fails with Invalid CVV",
+    "preconditions": "User is on the checkout page with the credit card payment option selected.",
+    "steps": [
+      "Enter a valid credit card number and expiration date.",
+      "Enter an invalid CVV (e.g., incorrect length, non-numeric) into the CVV field.",
+      "Click the 'Pay Now' or 'Complete Purchase' button."
+    ],
+    "expected_result": "A validation error message 'Invalid CVV' or similar is displayed below the CVV field. The payment is not processed, and the user remains on the checkout page.",
+    "test_type": "functional",
+    "priority": "High",
+    "test_case_id": "TC-006",
+    "review_status": "pending"
+  },
+  {
+    "title": "System Prevents Duplicate Payment Submission",
+    "preconditions": "User is on the checkout page with the credit card payment option selected. A valid test credit card is available.",
+    "steps": [
+      "Enter valid credit card details.",
+      "Rapidly click the 'Pay Now' or 'Complete Purchase' button multiple times (e.g., double-click)."
+    ],
+    "expected_result": "Only one payment transaction is processed successfully. The system prevents duplicate charges for the same order. A single order confirmation is displayed.",
+    "test_type": "regression",
+    "priority": "Medium",
+    "test_case_id": "TC-007",
+    "review_status": "pending"
+  },
+  {
+    "title": "System Handles Network Failure During Payment Transaction",
+    "preconditions": "User is on the checkout page with the credit card payment option selected. A valid test credit card is available. Network conditions can be simulated to fail during transaction.",
+    "steps": [
+      "Enter valid credit card details.",
+      "Click the 'Pay Now' or 'Complete Purchase' button.",
+      "Simulate a network disconnection or failure immediately after submission but before response."
+    ],
+    "expected_result": "The system displays an appropriate error message (e.g., 'Network error, please try again'). The payment is not processed or is marked as failed. The user is given an option to retry or check order status.",
+    "test_type": "regression",
+    "priority": "Medium",
+    "test_case_id": "TC-008",
+    "review_status": "pending"
+  },
+  {
+    "title": "System Handles Partial Payment Success (Auth Success, Capture Failure)",
+    "preconditions": "User is on the checkout page with the credit card payment option selected. A test credit card is configured to allow authorization but fail capture.",
+    "steps": [
+      "Enter valid credit card details for the configured card.",
+      "Click the 'Pay Now' or 'Complete Purchase' button."
+    ],
+    "expected_result": "The system detects the capture failure. The user is informed that the payment could not be completed and is prompted to try again or use an alternative payment method. The authorization is voided or released, and no funds are captured.",
+    "test_type": "regression",
+    "priority": "Medium",
+    "test_case_id": "TC-009",
+    "review_status": "pending"
+  },
+  {
+    "title": "Payment Session Expiry Prevents Transaction",
+    "preconditions": "User is logged in and has items in the shopping cart. User is on the checkout page. The payment session timeout is configured to a short duration (e.g., 1 minute) for testing.",
+    "steps": [
+      "Navigate to the checkout page and select credit card payment.",
+      "Wait for the configured payment session timeout duration without interacting with the payment form.",
+      "Enter valid credit card details and click 'Pay Now'."
+    ],
+    "expected_result": "The system displays a 'Session expired' or 'Payment session invalid' message. The payment is not processed. The user is prompted to refresh the page or restart the checkout process.",
+    "test_type": "regression",
+    "priority": "Medium",
+    "test_case_id": "TC-010",
     "review_status": "pending"
   }
 ]
